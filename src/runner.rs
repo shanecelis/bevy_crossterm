@@ -132,6 +132,8 @@ pub fn crossterm_runner(mut app: App) {
                                 window_component.height = height;
                                 window_component.width = width;
                             }
+                            // TODO handle other events
+                            _ => {}
                         }
                     } else {
                         break;
