@@ -1,4 +1,7 @@
+#![feature(trivial_bounds)]
 use bevy::prelude::*;
+use bevy_app::App;
+use bevy_asset::AddAsset;
 
 mod asset_loaders;
 pub mod components;
@@ -8,46 +11,55 @@ mod systems;
 
 pub struct CrosstermPlugin;
 impl Plugin for CrosstermPlugin {
-    fn build(&self, app: &mut bevy::app::AppBuilder) {
-        app.add_resource(Cursor::default())
-            .add_resource(components::PreviousEntityDetails::default())
-            .add_resource(components::EntitiesToRedraw::default())
-            .add_resource(components::PreviousWindowColors::default())
+    fn build(&self, app: &mut App) {
+        app.insert_resource(Cursor::default())
+            .insert_resource(components::PreviousEntityDetails::default())
+            .insert_resource(components::EntitiesToRedraw::default())
+            .insert_resource(components::PreviousWindowColors::default())
             .add_asset::<components::Sprite>()
             .add_asset::<components::StyleMap>()
             .init_asset_loader::<asset_loaders::SpriteLoader>()
             .init_asset_loader::<asset_loaders::StyleMapLoader>()
-            .add_event::<crossterm::event::KeyEvent>()
-            .add_event::<crossterm::event::MouseEvent>()
+            .add_event::<CrosstermKeyEventWrapper>()
+            .add_event::<CrosstermMouseEventWrapper>()
             .set_runner(runner::crossterm_runner)
             // Systems and stages
             // This must be before LAST because change tracking is cleared during LAST, but AssetEvents are published
             // after POST_UPDATE. The timing for all these things is pretty delicate
-            .add_stage_before(
-                bevy::app::stage::LAST,
-                stage::PRE_RENDER,
-                SystemStage::parallel(),
-            )
-            .add_stage_after(stage::PRE_RENDER, stage::RENDER, SystemStage::parallel())
-            .add_stage_after(stage::RENDER, stage::POST_RENDER, SystemStage::parallel())
-            .add_system_to_stage(
-                bevy::app::stage::POST_UPDATE,
-                systems::add_previous_position.system(),
+            // ! replace stages with schedules (https://bevyengine.org/learn/migration-guides/0.9-0.10/#stages)
+            .add_systems(PostUpdate,
+                systems::add_previous_position
             )
             // Needs asset events, and they aren't created until after POST_UPDATE, so we put them in PRE_RENDER
-            .add_system_to_stage(
-                stage::PRE_RENDER,
-                systems::calculate_entities_to_redraw.system(),
+            .add_systems(
+                PreUpdate,
+                systems::calculate_entities_to_redraw,
             )
-            .add_system_to_stage(stage::RENDER, systems::crossterm_render.system())
-            .add_system_to_stage(
-                stage::POST_RENDER,
-                systems::update_previous_position.system(),
+            .add_systems(Update, systems::crossterm_render)
+            .add_systems(
+                PostUpdate,
+                systems::update_previous_position,
             );
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Event)]
+pub struct CrosstermKeyEventWrapper(pub crossterm::event::KeyEvent);
+impl From<crossterm::event::KeyEvent> for CrosstermKeyEventWrapper {
+    fn from(event: crossterm::event::KeyEvent) -> Self {
+        CrosstermKeyEventWrapper(event)
+    }
+}
+#[derive(Event)]
+pub struct CrosstermMouseEventWrapper(pub crossterm::event::MouseEvent);
+impl From<crossterm::event::MouseEvent> for CrosstermMouseEventWrapper {
+    fn from(event: crossterm::event::MouseEvent) -> Self {
+        CrosstermMouseEventWrapper(event)
+    }
+}
+
+
+#[derive(Clone, Eq, PartialEq, Resource)]
 pub struct CrosstermWindowSettings {
     colors: components::Colors,
     title: Option<String>,
@@ -82,7 +94,7 @@ impl CrosstermWindowSettings {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Resource, Component)]
 pub struct CrosstermWindow {
     height: u16,
     width: u16,
@@ -135,7 +147,7 @@ impl CrosstermWindow {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct Cursor {
     pub x: i32,
     pub y: i32,
@@ -143,7 +155,16 @@ pub struct Cursor {
 }
 
 pub mod stage {
+    use bevy_ecs::schedule::ScheduleLabel;
+
     pub const PRE_RENDER: &str = "pre_render";
     pub const RENDER: &str = "render";
     pub const POST_RENDER: &str = "post_render";
+
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct PreRender;
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct Render;
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct PostRender;
 }

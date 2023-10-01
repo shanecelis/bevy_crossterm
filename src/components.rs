@@ -1,15 +1,17 @@
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
+use bevy::reflect::{TypePath, TypeUuid};
 use bevy::utils::{HashMap, HashSet};
+use bevy_asset::Handle;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub use crossterm::style::Color;
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub(crate) struct PreviousEntityDetails(pub HashMap<Entity, (PreviousPosition, PreviousSize)>);
 
+#[derive(Resource)]
 pub(crate) struct PreviousWindowColors(pub Colors);
 
 impl Default for PreviousWindowColors {
@@ -18,7 +20,7 @@ impl Default for PreviousWindowColors {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub(crate) struct EntitiesToRedraw {
     pub full_redraw: bool,
     pub to_clear: HashSet<Entity>,
@@ -38,7 +40,7 @@ pub struct SpriteBundle {
     pub visible: Visible,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub struct Colors {
     pub foreground: Option<Color>,
     pub background: Option<Color>,
@@ -147,7 +149,13 @@ mod attribute_parser {
     }
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+// #[derive(Copy, Clone, Deserialize, PartialEq, Eq, TypePath)]
+// pub struct StyleAttributes(pub crossterm::style::Attributes);
+
+// impl Reflect for StyleAttributes {}
+// impl FromReflect for StyleAttributes {}
+
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub struct Style {
     #[serde(with = "attribute_parser")]
     pub attributes: crossterm::style::Attributes,
@@ -204,7 +212,7 @@ impl Default for Style {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, PartialEq, Eq, TypeUuid)]
+#[derive(Default, Serialize, Deserialize, PartialEq, Eq, TypeUuid, TypePath)]
 #[uuid = "a5418d12-e050-498a-a31e-37fd0b6c078d"]
 pub struct StyleMap {
     pub style: Style,
@@ -268,7 +276,7 @@ impl StyleMap {
     }
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Component)]
 pub struct Visible {
     pub is_visible: bool,
     pub is_transparent: bool,
@@ -299,7 +307,7 @@ impl Visible {
     }
 }
 
-#[derive(Default, Eq, PartialEq, Debug, TypeUuid)]
+#[derive(Default, Eq, PartialEq, Debug, TypeUuid, Reflect)]
 #[uuid = "f04f5352-e656-4a90-95a5-2269c02d0091"]
 pub struct Sprite {
     // The whole sprites's data
@@ -313,8 +321,10 @@ pub struct Sprite {
 
 impl Sprite {
     pub fn new<T: std::string::ToString>(value: T) -> Sprite {
-        let mut sprite = Sprite::default();
-        sprite.data = value.to_string();
+        let mut sprite = Sprite {
+            data: value.to_string(),
+            ..Default::default()
+        };
 
         Sprite::convert_to_sprite(&mut sprite);
 
@@ -376,7 +386,7 @@ impl Sprite {
     }
 }
 
-#[derive(Default, Eq, PartialEq, Debug)]
+#[derive(Default, Eq, PartialEq, Debug, Component)]
 pub struct Position {
     pub x: i32,
     pub y: i32,

@@ -11,6 +11,7 @@ use bevy::utils::HashSet;
 
 use bevy::prelude::*;
 use bevy::window::WindowResized;
+use bevy_asset::{AssetEvent, Assets, Handle};
 use components::EntitiesToRedraw;
 use crossterm::{ExecutableCommand, QueueableCommand};
 
@@ -24,7 +25,7 @@ pub(crate) fn add_previous_position(
     all: Query<(&Position, &Handle<Sprite>)>,
 ) {
     for (entity, pos, sprite) in entities.iter() {
-        if let Some(sprite) = frames.get(&*sprite) {
+        if let Some(sprite) = frames.get(sprite) {
             let prev_pos = components::PreviousPosition {
                 x: pos.x,
                 y: pos.y,
@@ -51,7 +52,7 @@ pub(crate) fn add_previous_position(
         }
         let (pos, sprite) = data.unwrap();
 
-        if let Some(sprite) = frames.get(&*sprite) {
+        if let Some(sprite) = frames.get(sprite) {
             let prev_pos = PreviousPosition {
                 x: pos.x,
                 y: pos.y,
@@ -104,7 +105,7 @@ pub(crate) fn calculate_entities_to_redraw(
     mut prev_colors: ResMut<PreviousWindowColors>,
     mut entities: ResMut<EntitiesToRedraw>,
     previous_details: Res<PreviousEntityDetails>,
-    window: Res<CrosstermWindow>,
+    window: Query<&CrosstermWindow>,
     resize_events: Res<Events<WindowResized>>,
     sprites: Res<Assets<Sprite>>,
     sprite_asset_events: Res<Events<AssetEvent<Sprite>>>,
@@ -116,13 +117,14 @@ pub(crate) fn calculate_entities_to_redraw(
         &Position,
         &Visible,
     )>,
+    mut removed: RemovedComponents<Handle<Sprite>>,
     changed: Query<
         Entity,
         Or<(
-            Mutated<Position>,
-            Mutated<Handle<StyleMap>>,
-            Mutated<Visible>,
-            Mutated<Handle<Sprite>>,
+            Changed<Position>,
+            Changed<Handle<StyleMap>>,
+            Changed<Visible>,
+            Changed<Handle<Sprite>>,
         )>,
     >,
     added: Query<
@@ -141,6 +143,7 @@ pub(crate) fn calculate_entities_to_redraw(
         ),
     >,
 ) {
+    let window = window.single();
     entities.full_redraw = false;
     entities.to_draw.clear();
     entities.to_clear.clear();
@@ -148,7 +151,7 @@ pub(crate) fn calculate_entities_to_redraw(
     let mut draw_set = HashSet::default();
 
     // If a resize happened the whole screen is invalidated
-    if resize_events.get_reader().latest(&resize_events).is_some() || window.colors != prev_colors.0
+    if !resize_events.get_reader().is_empty(&resize_events) || window.colors != prev_colors.0
     {
         // We need a full redraw, so flag a full update and bail early
         // No need to do fancy update calculations
@@ -170,7 +173,7 @@ pub(crate) fn calculate_entities_to_redraw(
     let mut created_stylemap_assets = bevy::utils::HashSet::default();
     let mut changed_stylemap_assets = bevy::utils::HashSet::default();
     for evt in sprite_asset_events.get_reader().iter(&sprite_asset_events) {
-        match &*evt {
+        match evt {
             AssetEvent::Created { handle } => {
                 created_sprite_assets.insert(handle.clone());
             }
@@ -184,7 +187,7 @@ pub(crate) fn calculate_entities_to_redraw(
         .get_reader()
         .iter(&stylemap_asset_events)
     {
-        match &*evt {
+        match evt {
             AssetEvent::Created { handle } => {
                 created_stylemap_assets.insert(handle.clone());
             }
@@ -297,10 +300,13 @@ pub(crate) fn calculate_entities_to_redraw(
         });
     }
 
-    let removed = all.removed::<Handle<Sprite>>();
+    // For some reason the bevy team removed the `Query::remove` method, meaning we have to implement it ourselves (see https://github.com/bevyengine/bevy/blob/a1a81e572186c31d6e08aa23e4f2f62db7e2d3de/examples/ecs/removal_detection.rs#L53)
+    //let removed = all.removed::<Handle<Sprite>>();
 
-    for entity in removed {
-        entities.to_clear.insert(*entity);
+    for entity in removed.iter() {
+        if let Ok(e) = all.get(entity) {
+            entities.to_clear.insert(e.0);
+        }
     }
 
     for ent_to_draw in draw_set.iter() {
@@ -357,7 +363,7 @@ fn draw_entity(
         return Ok(());
     }
 
-    let sprite = sprites.get(&*sprite);
+    let sprite = sprites.get(sprite);
     if sprite.is_none() {
         // The sprite asset hasn't loaded yet, this isn't a problem
         return Ok(());
@@ -373,7 +379,7 @@ fn draw_entity(
         return Ok(());
     }
 
-    let stylemap = stylemaps.get(&*style);
+    let stylemap = stylemaps.get(style);
     if stylemap.is_none() {
         // The stylemap asset hasn't loaded yet, this isn't a problem
         return Ok(());
@@ -516,10 +522,9 @@ fn clear_entity(
     Ok(())
 }
 
-
 pub(crate) fn crossterm_render(
     changed_entities: Res<EntitiesToRedraw>,
-    window: Res<CrosstermWindow>,
+    window: Query<&CrosstermWindow>,
     cursor: Res<Cursor>,
     previous_details: Res<PreviousEntityDetails>,
     sprites: Res<Assets<Sprite>>,
@@ -532,6 +537,7 @@ pub(crate) fn crossterm_render(
         &Handle<Sprite>,
     )>,
 ) {
+    let window = window.single();
     let stdout = std::io::stdout();
     let mut term = stdout.lock();
 
@@ -554,7 +560,7 @@ pub(crate) fn crossterm_render(
 
     // Blank out all the previous locations of sprites that changed either their position or their size
     for entity in changed_entities.to_clear.iter() {
-        clear_entity(*entity, &mut term, &window, &previous_details).unwrap();
+        clear_entity(*entity, &mut term, window, &previous_details).unwrap();
     }
 
     // Redraw all the changed sprites, either because they moved, or because they changed their shape
@@ -562,7 +568,7 @@ pub(crate) fn crossterm_render(
         draw_entity(
             entity.entity,
             &mut term,
-            &window,
+            window,
             &sprites,
             &stylemaps,
             &all,

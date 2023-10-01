@@ -1,7 +1,5 @@
-use bevy::{
-    asset::{AssetLoader, LoadContext, LoadedAsset},
-    utils::BoxedFuture,
-};
+use bevy::utils::BoxedFuture;
+use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 
 use crate::components::{Sprite, StyleMap};
 
