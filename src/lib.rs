@@ -27,19 +27,11 @@ impl Plugin for CrosstermPlugin {
             // This must be before LAST because change tracking is cleared during LAST, but AssetEvents are published
             // after POST_UPDATE. The timing for all these things is pretty delicate
             // ! replace stages with schedules (https://bevyengine.org/learn/migration-guides/0.9-0.10/#stages)
-            .add_systems(PostUpdate,
-                systems::add_previous_position
-            )
+            .add_systems(PostUpdate, systems::add_previous_position)
             // Needs asset events, and they aren't created until after POST_UPDATE, so we put them in PRE_RENDER
-            .add_systems(
-                PreUpdate,
-                systems::calculate_entities_to_redraw,
-            )
+            .add_systems(PreUpdate, systems::calculate_entities_to_redraw)
             .add_systems(Update, systems::crossterm_render)
-            .add_systems(
-                PostUpdate,
-                systems::update_previous_position,
-            );
+            .add_systems(PostUpdate, systems::update_previous_position);
     }
 }
 
@@ -57,7 +49,6 @@ impl From<crossterm::event::MouseEvent> for CrosstermMouseEventWrapper {
         CrosstermMouseEventWrapper(event)
     }
 }
-
 
 #[derive(Clone, Eq, PartialEq, Resource)]
 pub struct CrosstermWindowSettings {
@@ -94,7 +85,7 @@ impl CrosstermWindowSettings {
     }
 }
 
-#[derive(Debug, Resource, Component)]
+#[derive(Debug, Component)]
 pub struct CrosstermWindow {
     height: u16,
     width: u16,
@@ -154,17 +145,18 @@ pub struct Cursor {
     pub hidden: bool,
 }
 
-pub mod stage {
-    use bevy_ecs::schedule::ScheduleLabel;
-
-    pub const PRE_RENDER: &str = "pre_render";
-    pub const RENDER: &str = "render";
-    pub const POST_RENDER: &str = "post_render";
-
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct PreRender;
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct Render;
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct PostRender;
-}
+//TODO unsure how to handle schedules in bevy 0.11
+// pub mod stage {
+//     use bevy_ecs::schedule::ScheduleLabel;
+//
+//     pub const PRE_RENDER: &str = "pre_render";
+//     pub const RENDER: &str = "render";
+//     pub const POST_RENDER: &str = "post_render";
+//
+//     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+//     pub struct PreRender;
+//     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+//     pub struct Render;
+//     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+//     pub struct PostRender;
+// }
