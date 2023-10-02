@@ -2,8 +2,6 @@ use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
-use std::default::Default;
-
 // This is probably the busiest example. This demonstrates that bevy_crossterm's incrememntal drawing
 // system will properly redraw sprites when required. To simulate movement - bevy_crossterm blanks out the
 // previous position/size of any sprites that changed before they're drawn again. This leave empty holes if
@@ -19,33 +17,41 @@ pub fn main() {
     let mut settings = CrosstermWindowSettings::default();
     settings.set_title("Redraw example");
 
-    App::build()
-        .add_resource(settings)
-        .add_resource(bevy::core::DefaultTaskPoolOptions::with_num_threads(1))
+    App::new()
+        .insert_resource(settings)
+        // .add_resource(bevy::core::DefaultTaskPoolOptions::with_num_threads(1))
+        .insert_resource(Countdown(Timer::new(
+            std::time::Duration::from_millis(250),
+            TimerMode::Repeating,
+        )))
         // 60Hz update is probably a bit gratuitous for this but eh
-        .add_resource(bevy::app::ScheduleRunnerSettings::run_loop(
-            std::time::Duration::from_millis(16),
+        .add_plugins((
+            DefaultPlugins,
+            CrosstermPlugin,
+            // ScheduleRunnerPlugin::run_loop(std::time::Duration::from_millis(16)),
         ))
-        .add_resource(Timer::new(std::time::Duration::from_millis(250), true))
-        .add_plugins(DefaultPlugins)
-        .add_plugin(CrosstermPlugin)
-        .add_startup_system(startup_system.system())
-        .add_system(update.system())
+        .add_systems(Startup, startup_system)
+        .add_systems(Update, update)
         .run();
 }
 
 // 5x5 box of spaces
 static BIG_BOX: &str = "       \n       \n       ";
 
+#[derive(Resource)]
+struct Countdown(Timer);
+
+#[derive(Component)]
 struct Tag;
 
 fn startup_system(
-    commands: &mut Commands,
-    window: Res<CrosstermWindow>,
+    mut commands: Commands,
+    window: Query<&CrosstermWindow>,
     mut cursor: ResMut<Cursor>,
     mut sprites: ResMut<Assets<Sprite>>,
     mut stylemaps: ResMut<Assets<StyleMap>>,
 ) {
+    let window = window.single();
     cursor.hidden = true;
 
     // Create our resources
@@ -55,19 +61,19 @@ fn startup_system(
     let white_bg = stylemaps.add(StyleMap::with_bg(Color::White));
 
     // Spawn two sprites into the world
+    commands.spawn(SpriteBundle {
+        sprite: big_box,
+        position: Position {
+            x: window.x_center() as i32 - 3,
+            y: window.y_center() as i32 - 1,
+            z: 0,
+        },
+        stylemap: white_bg.clone(),
+        ..Default::default()
+    });
+    // Moving entity that ensures the box will get redrawn each step the entity passes over it
     commands
-        .spawn(SpriteBundle {
-            sprite: big_box,
-            position: Position {
-                x: window.x_center() as i32 - 3,
-                y: window.y_center() as i32 - 1,
-                z: 0,
-            },
-            stylemap: white_bg.clone(),
-            ..Default::default()
-        })
-        // Moving entity that ensures the box will get redrawn each step the entity passes over it
-        .spawn(SpriteBundle {
+        .spawn((SpriteBundle {
             sprite: small_box,
             position: Position {
                 x: window.width() as i32 / 3,
@@ -76,9 +82,8 @@ fn startup_system(
             },
             stylemap: plain.clone(),
             ..Default::default()
-        })
-        .with(Tag); // Tagged with a unit struct so we can find it later to update it
-                    // Static entity that ensures we redraw all entities that need to
+        }, Tag));  // Tagged with a unit struct so we can find it later to update it
+                  // Static entity that ensures we redraw all entities that need to
     commands.spawn(SpriteBundle {
         sprite: sprites.add(Sprite::new("#")),
         position: Position {
@@ -93,14 +98,15 @@ fn startup_system(
 
 fn update(
     time: Res<Time>,
-    window: Res<CrosstermWindow>,
-    mut timer: ResMut<Timer>,
+    window: Query<&CrosstermWindow>,
+    mut timer: ResMut<Countdown>,
     mut query: Query<(&Tag, &mut Position)>,
     mut app_exit: ResMut<Events<AppExit>>,
 ) {
-    timer.tick(time.delta_seconds());
+    let window = window.single();
+    timer.0.tick(time.delta());
 
-    if timer.just_finished() {
+    if timer.0.just_finished() {
         let (_, mut pos) = query.iter_mut().next().unwrap();
         pos.x += 1;
 
