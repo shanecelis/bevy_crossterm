@@ -106,6 +106,7 @@ pub(crate) fn calculate_entities_to_redraw(
     window: Query<&CrosstermWindow>,
     resize_events: Res<Events<WindowResized>>,
     sprites: Res<Assets<Sprite>>,
+    stylemaps: Res<Assets<StyleMap>>,
     sprite_asset_events: Res<Events<AssetEvent<Sprite>>>,
     stylemap_asset_events: Res<Events<AssetEvent<StyleMap>>>,
     all: Query<(
@@ -149,8 +150,7 @@ pub(crate) fn calculate_entities_to_redraw(
     let mut draw_set = HashSet::default();
 
     // If a resize happened the whole screen is invalidated
-    if !resize_events.get_reader().is_empty(&resize_events) || window.colors != prev_colors.0
-    {
+    if !resize_events.get_reader().is_empty(&resize_events) || window.colors != prev_colors.0 {
         // We need a full redraw, so flag a full update and bail early
         // No need to do fancy update calculations
         entities.full_redraw = true;
@@ -170,27 +170,49 @@ pub(crate) fn calculate_entities_to_redraw(
     let mut changed_sprite_assets = bevy::utils::HashSet::default();
     let mut created_stylemap_assets = bevy::utils::HashSet::default();
     let mut changed_stylemap_assets = bevy::utils::HashSet::default();
-    for evt in sprite_asset_events.get_reader().iter(&sprite_asset_events) {
+
+    for evt in sprite_asset_events.get_reader().read(&sprite_asset_events) {
         match evt {
-            AssetEvent::Created { handle } => {
-                created_sprite_assets.insert(handle.clone());
+            AssetEvent::LoadedWithDependencies { id } => {
+                for cmp in sprites.iter() {
+                    if &cmp.0 == id {
+                        created_sprite_assets.insert(id.clone());
+                        break;
+                    }
+                }
             }
-            AssetEvent::Modified { handle } => {
-                changed_sprite_assets.insert(handle.clone());
+            AssetEvent::Modified { id } => {
+                for cmp in sprites.iter() {
+                    if &cmp.0 == id {
+                        changed_sprite_assets.insert(id.clone());
+                        break;
+                    }
+                }
             }
             _ => {}
         }
     }
+
     for evt in stylemap_asset_events
         .get_reader()
-        .iter(&stylemap_asset_events)
+        .read(&stylemap_asset_events)
     {
         match evt {
-            AssetEvent::Created { handle } => {
-                created_stylemap_assets.insert(handle.clone());
+            AssetEvent::LoadedWithDependencies { id } => {
+                for cmp in stylemaps.iter() {
+                    if &cmp.0 == id {
+                        created_stylemap_assets.insert(id.clone());
+                        break;
+                    }
+                }
             }
-            AssetEvent::Modified { handle } => {
-                changed_stylemap_assets.insert(handle.clone());
+            AssetEvent::Modified { id } => {
+                for cmp in stylemaps.iter() {
+                    if &cmp.0 == id {
+                        changed_stylemap_assets.insert(id.clone());
+                        break;
+                    }
+                }
             }
             _ => {}
         }
@@ -199,13 +221,15 @@ pub(crate) fn calculate_entities_to_redraw(
     // Collect all the entities that changed this update, either because their asset did,
     // or their components did
     for (entity, style_hnd, sprite_hnd, _, _) in all.iter() {
-        if changed_sprite_assets.contains(sprite_hnd) || changed_stylemap_assets.contains(style_hnd)
+        if changed_sprite_assets.contains(&sprite_hnd.id())
+            || changed_stylemap_assets.contains(&style_hnd.id())
         {
             entities.to_clear.insert(entity);
             draw_set.insert(entity);
         }
 
-        if created_sprite_assets.contains(sprite_hnd) || created_stylemap_assets.contains(style_hnd)
+        if created_sprite_assets.contains(&sprite_hnd.id())
+            || created_stylemap_assets.contains(&style_hnd.id())
         {
             draw_set.insert(entity);
         }
@@ -301,7 +325,7 @@ pub(crate) fn calculate_entities_to_redraw(
     // For some reason the bevy team removed the `Query::remove` method, meaning we have to implement it ourselves (see https://github.com/bevyengine/bevy/blob/a1a81e572186c31d6e08aa23e4f2f62db7e2d3de/examples/ecs/removal_detection.rs#L53)
     //let removed = all.removed::<Handle<Sprite>>();
 
-    for entity in removed.iter() {
+    for entity in removed.read() {
         if let Ok(e) = all.get(entity) {
             entities.to_clear.insert(e.0);
         }
@@ -563,15 +587,7 @@ pub(crate) fn crossterm_render(
 
     // Redraw all the changed sprites, either because they moved, or because they changed their shape
     for entity in changed_entities.to_draw.iter() {
-        draw_entity(
-            entity.entity,
-            &mut term,
-            window,
-            &sprites,
-            &stylemaps,
-            &all,
-        )
-        .unwrap();
+        draw_entity(entity.entity, &mut term, window, &sprites, &stylemaps, &all).unwrap();
     }
 
     // Draw the cursor at the right position, if needed

@@ -212,7 +212,7 @@ impl Default for Style {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, PartialEq, Eq, TypeUuid, TypePath)]
+#[derive(Default, Serialize, Deserialize, PartialEq, Eq, TypeUuid, TypePath, Asset)]
 #[uuid = "a5418d12-e050-498a-a31e-37fd0b6c078d"]
 pub struct StyleMap {
     pub style: Style,
@@ -307,7 +307,7 @@ impl Visible {
     }
 }
 
-#[derive(Default, Eq, PartialEq, Debug, TypeUuid, Reflect)]
+#[derive(Default, Eq, PartialEq, Debug, TypeUuid, Reflect, Asset)]
 #[uuid = "f04f5352-e656-4a90-95a5-2269c02d0091"]
 pub struct Sprite {
     // The whole sprites's data

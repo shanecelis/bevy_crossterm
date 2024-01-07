@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
+use bevy_asset::LoadedUntypedAsset;
 use std::default::Default;
 use std::time::Duration;
 
@@ -10,8 +11,6 @@ enum GameState {
     Loading,
     Running,
 }
-
-// static STAGE: &str = "GAME";
 
 // PRO TIP: _technically_ since Sprite's are just created using strings, an easier way to load them from an external
 // file is just:
@@ -33,7 +32,7 @@ pub fn main() {
         .insert_resource(settings)
         // Set some options in bevy to make our program a little less resource intensive - it's just a terminal game
         // no need to try and go nuts
-        .insert_resource(TaskPoolOptions::with_num_threads(1))
+        // .insert_resource(TaskPoolOptions::with_num_threads(1))
         // The Crossterm runner respects the schedulerunnersettings. No need to run as fast as humanly
         // possible - 20 fps should be more than enough for a scene that never changes
         .add_plugins(bevy_app::ScheduleRunnerPlugin::run_loop(
@@ -52,7 +51,7 @@ pub fn main() {
 static ASSETS: &[&str] = &["demo/title.txt", "demo/title.stylemap"];
 
 #[derive(Resource)]
-struct CrosstermAssets(Vec<HandleUntyped>);
+struct CrosstermAssets(Vec<Handle<LoadedUntypedAsset>>);
 
 fn default_settings(mut cursor: ResMut<Cursor>) {
     cursor.hidden = true;
@@ -76,15 +75,24 @@ fn check_for_loaded(
     handles: Res<CrosstermAssets>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    let data = asset_server.get_group_load_state(handles.0.iter().map(|handle| handle.id()));
+    let mut all_done = true;
+    for handle in handles.0.iter() {
+        let data = asset_server.load_state(handle);
 
-    match data {
-        bevy::asset::LoadState::NotLoaded | bevy::asset::LoadState::Loading => {}
-        bevy::asset::LoadState::Loaded => {
-            next_state.set(GameState::Running);
+        match data {
+            bevy::asset::LoadState::NotLoaded | bevy::asset::LoadState::Loading => {
+                all_done = false;
+                break;
+            }
+            bevy::asset::LoadState::Loaded => {}
+            bevy::asset::LoadState::Failed => {
+                panic!("This is an example and should not fail")
+            }
         }
-        bevy::asset::LoadState::Failed => {}
-        bevy::asset::LoadState::Unloaded => {}
+    }
+
+    if all_done {
+        next_state.set(GameState::Running);
     }
 }
 
@@ -97,8 +105,10 @@ fn create_entities(
 ) {
     // I want to center the title, so i needed to wait until it was loaded before I could actually access
     // the underlying data to see how wide the sprite is and do the math
-    let title_handle = asset_server.get_handle("demo/title.txt");
-    let title_sprite = sprites.get(&title_handle).expect("We waited for asset loading");
+    let title_handle = asset_server.get_handle("demo/title.txt").unwrap();
+    let title_sprite = sprites
+        .get(&title_handle)
+        .expect("We waited for asset loading");
 
     let window = window.single();
     let center_x = window.x_center() as i32 - title_sprite.x_center() as i32;
@@ -107,7 +117,7 @@ fn create_entities(
     commands.spawn(SpriteBundle {
         sprite: title_handle.clone(),
         position: Position::with_xy(center_x, center_y),
-        stylemap: asset_server.get_handle("demo/title.stylemap"),
+        stylemap: asset_server.get_handle("demo/title.stylemap").unwrap(),
         ..Default::default()
     });
 }

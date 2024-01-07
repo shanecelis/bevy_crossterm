@@ -148,7 +148,7 @@ pub fn crossterm_runner(mut app: App) {
                 {
                     let app_exit_events = app.world.resource::<Events<AppExit>>();
                     let mut app_exit_reader = app_exit_events.get_reader();
-                    if app_exit_reader.iter(app_exit_events).next().is_some() {
+                    if app_exit_reader.read(app_exit_events).next().is_some() {
                         // We're breaking out, the app requested an exit
                         return Err(AppExit);
                     };

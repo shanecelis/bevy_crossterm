@@ -62,8 +62,8 @@ pub fn setup(
 
     commands
         .spawn(SpriteBundle {
-            sprite: asset_server.get_handle("demo/bounce.txt"),
-            stylemap: asset_server.get_handle("demo/bounce.stylemap"),
+            sprite: asset_server.get_handle("demo/bounce.txt").unwrap(),
+            stylemap: asset_server.get_handle("demo/bounce.stylemap").unwrap(),
             position: Position::new(window.x_center() as i32, window.y_center() as i32, 1),
             ..Default::default()
         })

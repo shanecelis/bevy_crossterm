@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
+use bevy_asset::LoadedFolder;
 use bevy_crossterm::CrosstermKeyEventWrapper;
 use std::default::Default;
 use std::time::Duration;
@@ -88,8 +89,13 @@ pub fn main() {
 }
 
 #[derive(Resource)]
-struct CrosstermAssets(Vec<HandleUntyped>);
-
+struct CrosstermAssets(Handle<LoadedFolder>);
+/*
+#[derive(Bundle)]
+struct SceneRoot {
+    test: Position,
+}
+*/
 fn loading_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -98,12 +104,12 @@ fn loading_system(
     cursor.hidden = true;
 
     // Load the assets we want
-    let handles = asset_server.load_folder("demo").unwrap();
+    let handle = asset_server.load_folder("demo");
 
     // TODO
     // asset_server.watch_for_changes().unwrap();
 
-    commands.insert_resource(CrosstermAssets(handles));
+    commands.insert_resource(CrosstermAssets(handle));
 }
 
 // This function exists solely because bevy's asset loading is async.
@@ -114,16 +120,25 @@ fn check_for_loaded(
     state: Res<State<GameState>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    let data = asset_server.get_group_load_state(handles.0.iter().map(|handle| handle.id()));
+    /*
+    let mut all_done = true;
 
-    match data {
-        bevy::asset::LoadState::NotLoaded | bevy::asset::LoadState::Loading => {}
-        bevy::asset::LoadState::Loaded => {
-            let state = state.next_state().unwrap();
-            next_state.set(state);
+    let data = asset_server.load_state(handle);
+        match data {
+            bevy::asset::LoadState::NotLoaded | bevy::asset::LoadState::Loading => {
+                all_done = false;
+                break;
+            }
+            bevy::asset::LoadState::Loaded => {}
+            bevy::asset::LoadState::Failed => {
+                panic!("This is an example and should not fail")
+            }
         }
-        bevy::asset::LoadState::Failed => {}
-        bevy::asset::LoadState::Unloaded => {}
+    }*/
+
+    if asset_server.is_loaded_with_dependencies(&handles.0) {
+        let state = state.next_state().unwrap();
+        next_state.set(state);
     }
 }
 

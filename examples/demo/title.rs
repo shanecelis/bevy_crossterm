@@ -10,7 +10,7 @@ pub fn setup(
 ) {
     let window = window.single();
 
-    let title_handle = asset_server.get_handle("demo/title.txt");
+    let title_handle = asset_server.get_handle("demo/title.txt").unwrap();
     let title_sprite = sprites.get(&title_handle).unwrap();
     let title_pos = Position::with_xy(
         window.x_center() as i32 - title_sprite.x_center() as i32,

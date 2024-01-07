@@ -23,14 +23,14 @@ pub fn setup(
 
     let default_style = stylemaps.add(StyleMap::default());
 
-    let big_box_handle: Handle<Sprite> = asset_server.get_handle("demo/big_box.txt");
+    let big_box_handle: Handle<Sprite> = asset_server.get_handle("demo/big_box.txt").unwrap();
     let big_box_sprite = sprites.get(&big_box_handle).unwrap();
     let big_box_pos = Position::with_xy(
         window.width() as i32 / 4 * 3 - big_box_sprite.width() as i32 - MARGIN,
         window.height() as i32 / 10 * 1,
     );
 
-    let small_box_handle: Handle<Sprite> = asset_server.get_handle("demo/small_box.txt");
+    let small_box_handle: Handle<Sprite> = asset_server.get_handle("demo/small_box.txt").unwrap();
     let small_box_pos = Position::with_xy(
         window.width() as i32 / 4 * 3 + MARGIN,
         window.height() as i32 / 10 * 1 + 1,
@@ -73,14 +73,14 @@ pub fn setup(
     // These are the two boxes separately
     commands
         .spawn(SpriteBundle {
-            sprite: asset_server.get_handle("demo/big_box.txt"),
+            sprite: asset_server.get_handle("demo/big_box.txt").unwrap(),
             position: big_box_pos,
             stylemap: grey_handle.clone(),
             ..Default::default()
         });
     commands
         .spawn(SpriteBundle {
-            sprite: asset_server.get_handle("demo/small_box.txt"),
+            sprite: asset_server.get_handle("demo/small_box.txt").unwrap(),
             stylemap: white_handle.clone(),
             position: small_box_pos,
             ..Default::default()

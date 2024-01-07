@@ -1,7 +1,6 @@
 #![feature(trivial_bounds)]
 use bevy::prelude::*;
 use bevy_app::App;
-use bevy_asset::AddAsset;
 
 mod asset_loaders;
 pub mod components;
@@ -16,10 +15,12 @@ impl Plugin for CrosstermPlugin {
             .insert_resource(components::PreviousEntityDetails::default())
             .insert_resource(components::EntitiesToRedraw::default())
             .insert_resource(components::PreviousWindowColors::default())
-            .add_asset::<components::Sprite>()
-            .add_asset::<components::StyleMap>()
-            .init_asset_loader::<asset_loaders::SpriteLoader>()
-            .init_asset_loader::<asset_loaders::StyleMapLoader>()
+            // Custom assets
+            .register_asset_loader(asset_loaders::SpriteLoader)
+            .init_asset::<components::Sprite>()
+            .register_asset_loader(crate::asset_loaders::StyleMapLoader)
+            .init_asset::<components::StyleMap>()
+            // Crossterm events
             .add_event::<CrosstermKeyEventWrapper>()
             .add_event::<CrosstermMouseEventWrapper>()
             .set_runner(runner::crossterm_runner)
