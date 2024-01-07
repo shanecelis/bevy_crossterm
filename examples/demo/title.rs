@@ -2,13 +2,14 @@ use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
 pub fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
-    window: Res<CrosstermWindow>,
-    scene_root: Res<Entity>,
+    window: Query<&CrosstermWindow>,
     mut sprites: ResMut<Assets<Sprite>>,
     mut stylemaps: ResMut<Assets<StyleMap>>,
 ) {
+    let window = window.single();
+
     let title_handle = asset_server.get_handle("demo/title.txt");
     let title_sprite = sprites.get(&title_handle).unwrap();
     let title_pos = Position::with_xy(
@@ -42,8 +43,8 @@ pub fn setup(
             position: title_pos,
             stylemap: asset_server.load("demo/title.stylemap"),
             ..Default::default()
-        })
-        .with(Parent(*scene_root))
+        });
+    commands
         .spawn(SpriteBundle {
             sprite: sprites.add(welcome_sprite),
             position: welcome_pos,
@@ -51,20 +52,19 @@ pub fn setup(
                 &[Attribute::Bold, Attribute::Underlined][..],
             ))),
             ..Default::default()
-        })
-        .with(Parent(*scene_root))
+        });
+    commands
         .spawn(SpriteBundle {
             sprite: sprites.add(explain_sprite),
             position: explain_pos,
             stylemap: color.clone(),
             ..Default::default()
-        })
-        .with(Parent(*scene_root))
+        });
+    commands
         .spawn(SpriteBundle {
             sprite: sprites.add(press_sprite),
             position: press_pos,
             stylemap: stylemaps.add(StyleMap::with_attrib(Attribute::Italic)),
             ..Default::default()
-        })
-        .with(Parent(*scene_root));
+        });
 }

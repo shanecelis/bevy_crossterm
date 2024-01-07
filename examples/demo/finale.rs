@@ -2,19 +2,20 @@ use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
 pub fn setup(
-    commands: &mut Commands,
-    scene_root: Res<Entity>,
-    window: Res<CrosstermWindow>,
+    mut commands: Commands,
+    window: Query<&CrosstermWindow>,
     mut sprites: ResMut<Assets<Sprite>>,
     mut stylemaps: ResMut<Assets<StyleMap>>,
 ) {
+    let window = window.single();
+
     let goodbye = Sprite::new("Thank you for checking out bevy_crossterm! :) <3");
     let goodbye_pos = Position::with_xy(
         window.x_center() as i32 - goodbye.x_center() as i32,
         window.y_center() as i32 - goodbye.y_center() as i32,
     );
 
-    // Programatically generate this style map
+    // Programmatically generate this style map
     let mut style = StyleMap::default();
     style.map.push(Vec::new());
     for ch in goodbye.data().chars() {
@@ -34,6 +35,5 @@ pub fn setup(
             position: goodbye_pos,
             stylemap: stylemaps.add(style),
             ..Default::default()
-        })
-        .with(Parent(*scene_root));
+        });
 }

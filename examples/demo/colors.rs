@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
 use Color::*;
+
 static COLORS: &[Color] = &[
     Black,
     DarkGrey,
@@ -22,13 +23,13 @@ static COLORS: &[Color] = &[
 ];
 
 pub fn setup(
-    commands: &mut Commands,
-    scene_root: Res<Entity>,
-    window: Res<CrosstermWindow>,
+    mut commands: Commands,
+    window: Query<&CrosstermWindow>,
     mut sprites: ResMut<Assets<Sprite>>,
     mut stylemaps: ResMut<Assets<StyleMap>>,
 ) {
     const Y_MARGIN: i32 = 2;
+    let window = window.single();
 
     let title_sprite =
         Sprite::new("bevy_crossterm supports up to 24-bit color! (on terminals where supported)");
@@ -45,8 +46,7 @@ pub fn setup(
             position: title_pos,
             stylemap: default_style.clone(),
             ..Default::default()
-        })
-        .with(Parent(*scene_root));
+        });
 
     let space = sprites.add(Sprite::new("    "));
 
@@ -63,8 +63,7 @@ pub fn setup(
                 stylemap,
                 position,
                 ..Default::default()
-            })
-            .with(Parent(*scene_root));
+            });
     }
 
     // ANSI colors
@@ -85,8 +84,7 @@ pub fn setup(
                 stylemap,
                 position,
                 ..Default::default()
-            })
-            .with(Parent(*scene_root));
+            });
     }
 
     // Linear gradients for RGB colors
@@ -113,8 +111,7 @@ pub fn setup(
                 position,
                 stylemap,
                 ..Default::default()
-            })
-            .with(Parent(*scene_root));
+            });
     }
 
     // Blue
@@ -135,8 +132,7 @@ pub fn setup(
                 position,
                 stylemap,
                 ..Default::default()
-            })
-            .with(Parent(*scene_root));
+            });
     }
 
     // Green
@@ -160,8 +156,7 @@ pub fn setup(
                 position,
                 stylemap,
                 ..Default::default()
-            })
-            .with(Parent(*scene_root));
+            });
     }
 
     // All
@@ -185,7 +180,6 @@ pub fn setup(
                 position,
                 stylemap,
                 ..Default::default()
-            })
-            .with(Parent(*scene_root));
+            });
     }
 }
