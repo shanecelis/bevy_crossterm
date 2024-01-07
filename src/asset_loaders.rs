@@ -25,7 +25,7 @@ impl AssetLoader for SpriteLoader {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            let string = std::str::from_utf8(&*bytes);
+            let string = std::str::from_utf8(&bytes);
             let sprite = Sprite::new(string?);
             Ok(sprite)
         })
@@ -53,7 +53,7 @@ impl AssetLoader for StyleMapLoader {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            let stylemap = ron::de::from_bytes::<StyleMap>(&*bytes)?;
+            let stylemap = ron::de::from_bytes::<StyleMap>(&bytes)?;
             Ok(stylemap)
         })
     }

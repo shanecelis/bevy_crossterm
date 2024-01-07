@@ -40,22 +40,14 @@ pub struct SpriteBundle {
     pub visible: Visible,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Reflect, Default)]
 pub struct Colors {
     pub foreground: Option<Color>,
     pub background: Option<Color>,
 }
-impl Default for Colors {
-    fn default() -> Self {
-        Colors {
-            foreground: None,
-            background: None,
-        }
-    }
-}
 
 impl Colors {
-    pub fn term_colors() -> Colors {
+    pub fn term_colors() -> Self {
         Colors {
             foreground: Some(Color::Reset),
             background: Some(Color::Reset),
@@ -63,28 +55,28 @@ impl Colors {
     }
 
     // Returns the color which represents either this struct, or provided defaults if this struct is empty
-    pub fn with_default(&self, default_colors: Colors) -> Colors {
+    pub fn with_default(&self, default_colors: Colors) -> Self {
         Colors {
             foreground: self.foreground.or(default_colors.foreground),
             background: self.background.or(default_colors.background),
         }
     }
 
-    pub fn new(foreground: Color, background: Color) -> Colors {
+    pub fn new(foreground: Color, background: Color) -> Self {
         Colors {
             foreground: Some(foreground),
             background: Some(background),
         }
     }
 
-    pub fn bg(background: Color) -> Colors {
+    pub fn bg(background: Color) -> Self {
         Colors {
             foreground: None,
             background: Some(background),
         }
     }
 
-    pub fn fg(foreground: Color) -> Colors {
+    pub fn fg(foreground: Color) -> Self {
         Colors {
             foreground: Some(foreground),
             background: None,
@@ -102,12 +94,13 @@ impl Colors {
 mod attribute_parser {
     use serde::de::Visitor;
     use serde::{Deserializer, Serializer};
+
     pub fn serialize<S>(
         attrs: &crossterm::style::Attributes,
         serializer: S,
     ) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         let mut attr_bits = 0u32;
         for attr in crossterm::style::Attribute::iterator() {
@@ -128,8 +121,8 @@ mod attribute_parser {
         }
 
         fn visit_u32<E>(self, attr_bits: u32) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
+            where
+                E: serde::de::Error,
         {
             let mut attrs = crossterm::style::Attributes::default();
             for attr in crossterm::style::Attribute::iterator() {
@@ -142,8 +135,8 @@ mod attribute_parser {
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<crossterm::style::Attributes, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         deserializer.deserialize_u32(AttrVisitor)
     }
@@ -320,7 +313,7 @@ pub struct Sprite {
 }
 
 impl Sprite {
-    pub fn new<T: std::string::ToString>(value: T) -> Sprite {
+    pub fn new<T: ToString>(value: T) -> Sprite {
         let mut sprite = Sprite {
             data: value.to_string(),
             ..Default::default()
@@ -379,7 +372,7 @@ impl Sprite {
         &self.data[grapheme.0..grapheme.1]
     }
 
-    pub fn update<T: std::string::ToString>(&mut self, value: T) {
+    pub fn update<T: ToString>(&mut self, value: T) {
         self.data = value.to_string();
         self.graphemes.clear();
         Sprite::convert_to_sprite(self);

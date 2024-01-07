@@ -14,7 +14,7 @@ enum GameState {
 
 // PRO TIP: _technically_ since Sprite's are just created using strings, an easier way to load them from an external
 // file is just:
-//static TITLE_TEXT: &str = include_str!("assets/demo/title.ct_sprite");
+//static TITLE_TEXT: &str = include_str!("assets/demo/title.txt");
 // then just:
 //sprites.add(Sprite::new(TITLE_TEXT));
 // and boom, you have yourself a sprite in the asset system.

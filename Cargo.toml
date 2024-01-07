@@ -24,7 +24,7 @@ anyhow = { version = "1.0.79", features = [] }
 [dev-dependencies]
 bevy = { version = "0.12", default-features = false, features = ["bevy_asset"] }
 ron = "0.8"
-textwrap = "0.13.1"
+textwrap = "0.16.0"
 
 [[example]]
 name = "window"

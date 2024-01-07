@@ -3,20 +3,18 @@ use std::{convert::TryInto, io::Write};
 use crate::components::{self, Style};
 use crate::components::{
     Colors, EntityDepth, Position, PreviousEntityDetails, PreviousPosition, PreviousSize,
-    PreviousWindowColors, Sprite, StyleMap, Visible,
+    PreviousWindowColors, Sprite, StyleMap,
 };
 use crate::{CrosstermWindow, Cursor};
-
-use bevy::utils::HashSet;
 
 use bevy::prelude::*;
 use bevy::window::WindowResized;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use components::EntitiesToRedraw;
 use crossterm::{ExecutableCommand, QueueableCommand};
 
+/// Records the initial position/size for every new entity
 pub(crate) fn add_previous_position(
-    mut entities_without_assets: Local<HashSet<Entity>>,
+    mut entities_without_assets: Local<bevy::utils::HashSet<Entity>>,
     mut previous_details: ResMut<PreviousEntityDetails>,
     frames: Res<Assets<Sprite>>,
     entities: Query<(Entity, &Position, &Handle<Sprite>), (Added<Position>, Added<Handle<Sprite>>)>,
@@ -63,10 +61,7 @@ pub(crate) fn add_previous_position(
             previous_details.0.insert(*entity, (prev_pos, prev_size));
 
             // We need to remove this entity now, but can't since it's container is borrowed.
-            {
-                // Needs it's own scope or the borrow checker can't tell when thee mutable borrow ends
-                entities_to_remove.push(*entity);
-            }
+            entities_to_remove.push(*entity);
         }
     }
 
@@ -75,10 +70,11 @@ pub(crate) fn add_previous_position(
     }
 }
 
+/// Records the current position for every known entity
 pub(crate) fn update_previous_position(
     mut previous_details: ResMut<PreviousEntityDetails>,
     frames: Res<Assets<Sprite>>,
-    mut positions: Query<(Entity, &Position, &Handle<Sprite>, &Visible)>,
+    mut positions: Query<(Entity, &Position, &Handle<Sprite>, &components::Visible)>,
 ) {
     for (entity, new_pos, sprite, _) in positions.iter_mut() {
         if let Some(sprite) = frames.get(sprite) {
@@ -99,9 +95,10 @@ pub(crate) fn update_previous_position(
     }
 }
 
+/// Calculates which entities ned to be redrawn
 pub(crate) fn calculate_entities_to_redraw(
     mut prev_colors: ResMut<PreviousWindowColors>,
-    mut entities: ResMut<EntitiesToRedraw>,
+    mut entities: ResMut<components::EntitiesToRedraw>,
     previous_details: Res<PreviousEntityDetails>,
     window: Query<&CrosstermWindow>,
     resize_events: Res<Events<WindowResized>>,
@@ -114,7 +111,7 @@ pub(crate) fn calculate_entities_to_redraw(
         &Handle<StyleMap>,
         &Handle<Sprite>,
         &Position,
-        &Visible,
+        &components::Visible,
     )>,
     mut removed: RemovedComponents<Handle<Sprite>>,
     changed: Query<
@@ -122,7 +119,7 @@ pub(crate) fn calculate_entities_to_redraw(
         Or<(
             Changed<Position>,
             Changed<Handle<StyleMap>>,
-            Changed<Visible>,
+            Changed<components::Visible>,
             Changed<Handle<Sprite>>,
         )>,
     >,
@@ -132,12 +129,12 @@ pub(crate) fn calculate_entities_to_redraw(
             Or<(
                 Added<Position>,
                 Added<Handle<StyleMap>>,
-                Added<Visible>,
+                Added<components::Visible>,
                 Added<Handle<Sprite>>,
             )>,
             With<Position>,
             With<Handle<StyleMap>>,
-            With<Visible>,
+            With<components::Visible>,
             With<Handle<Sprite>>,
         ),
     >,
@@ -147,7 +144,7 @@ pub(crate) fn calculate_entities_to_redraw(
     entities.to_draw.clear();
     entities.to_clear.clear();
 
-    let mut draw_set = HashSet::default();
+    let mut draw_set = bevy::utils::HashSet::default();
 
     // If a resize happened the whole screen is invalidated
     if !resize_events.get_reader().is_empty(&resize_events) || window.colors != prev_colors.0 {
@@ -329,7 +326,7 @@ pub(crate) fn calculate_entities_to_redraw(
         entities.to_clear.insert(entity);
     }
 
-    for ent_to_draw in draw_set.iter() {
+    for ent_to_draw in &draw_set {
         let (entity, _, _, pos, _) = all.get(*ent_to_draw).unwrap();
         entities
             .to_draw
@@ -338,7 +335,7 @@ pub(crate) fn calculate_entities_to_redraw(
     entities.to_draw.sort_by_key(|item| item.z);
 }
 
-/// Helper function for draw_entity which determines whether the style on the terminal should be
+/// Helper function for `draw_entity` which determines whether the style on the terminal should be
 /// changed
 fn change_style_if_needed(
     term: &mut std::io::StdoutLock,
@@ -410,8 +407,8 @@ fn draw_entity(
     term.queue(crossterm::style::SetAttribute(
         crossterm::style::Attribute::Reset,
     ))?
-    .queue(crossterm::style::SetAttributes(stylemap.style.attributes))?
-    .queue(crossterm::style::SetColors(sprite_colors.to_crossterm()))?;
+        .queue(crossterm::style::SetAttributes(stylemap.style.attributes))?
+        .queue(crossterm::style::SetColors(sprite_colors.to_crossterm()))?;
 
     let mut previous_style = stylemap.style;
 
@@ -529,21 +526,22 @@ fn clear_entity(
         term.queue(crossterm::style::SetAttribute(
             crossterm::style::Attribute::Reset,
         ))?
-        .queue(crossterm::style::SetColors(
-            Colors::term_colors().to_crossterm(),
-        ))?
-        .queue(crossterm::cursor::MoveTo(
-            x_start.try_into()?,
-            y.try_into()?,
-        ))?
-        .queue(crossterm::style::Print(blank_string))?;
+            .queue(crossterm::style::SetColors(
+                Colors::term_colors().to_crossterm(),
+            ))?
+            .queue(crossterm::cursor::MoveTo(
+                x_start.try_into()?,
+                y.try_into()?,
+            ))?
+            .queue(crossterm::style::Print(blank_string))?;
     }
 
     Ok(())
 }
 
+/// Draw any entity that needs to be drawn
 pub(crate) fn crossterm_render(
-    changed_entities: Res<EntitiesToRedraw>,
+    changed_entities: Res<components::EntitiesToRedraw>,
     window: Query<&CrosstermWindow>,
     cursor: Res<Cursor>,
     previous_details: Res<PreviousEntityDetails>,
@@ -553,7 +551,7 @@ pub(crate) fn crossterm_render(
         Entity,
         &Position,
         &Handle<StyleMap>,
-        &Visible,
+        &components::Visible,
         &Handle<Sprite>,
     )>,
 ) {
@@ -571,25 +569,27 @@ pub(crate) fn crossterm_render(
         term.execute(crossterm::style::SetAttribute(
             crossterm::style::Attribute::Reset,
         ))
-        .unwrap()
-        .execute(crossterm::terminal::Clear(
-            crossterm::terminal::ClearType::All,
-        ))
-        .unwrap();
+            .unwrap()
+            .execute(crossterm::terminal::Clear(
+                crossterm::terminal::ClearType::All,
+            ))
+            .unwrap();
     }
 
     // Blank out all the previous locations of sprites that changed either their position or their size
-    for entity in changed_entities.to_clear.iter() {
+    for entity in &changed_entities.to_clear {
         clear_entity(*entity, &mut term, window, &previous_details).unwrap();
     }
 
     // Redraw all the changed sprites, either because they moved, or because they changed their shape
-    for entity in changed_entities.to_draw.iter() {
+    for entity in &changed_entities.to_draw {
         draw_entity(entity.entity, &mut term, window, &sprites, &stylemaps, &all).unwrap();
     }
 
     // Draw the cursor at the right position, if needed
-    if !cursor.hidden {
+    if cursor.hidden {
+        term.queue(crossterm::cursor::Hide).unwrap();
+    } else {
         if cursor.x >= 0
             && cursor.x < window.width as i32
             && cursor.y >= 0
@@ -599,8 +599,6 @@ pub(crate) fn crossterm_render(
                 .unwrap();
             term.queue(crossterm::cursor::Show).unwrap();
         }
-    } else {
-        term.queue(crossterm::cursor::Hide).unwrap();
     }
 
     term.flush().unwrap();

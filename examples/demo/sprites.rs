@@ -14,7 +14,7 @@ pub fn setup(
     let mut explain_text = "Sprites are the lifeblood of bevy_crossterm.\n\nSprites are rectangular regions of (unicode) text which are rendered on the screen at a given Position. Sprites can also be visible/invisible and \"transparent\" which allows bevy_crossterm to skip rendering unstyled spaces, so the sprites underneath are visible.\n\nPositions have an x, y, and z coordinate to allow them to be properly ordered front-to-back.".to_string();
     let explain_width = window.x_center() as i32 - MARGIN * 2; // Half the screen plus some margins
     textwrap::fill_inplace(&mut explain_text, explain_width as usize);
-    let explain_text = explain_text.replace("\n", "\n\n");
+    let explain_text = explain_text.replace('\n', "\n\n");
     let explain_sprite = Sprite::new(explain_text);
     let explain_pos = Position::with_xy(
         MARGIN,

@@ -90,12 +90,7 @@ pub fn main() {
 
 #[derive(Resource)]
 struct CrosstermAssets(Handle<LoadedFolder>);
-/*
-#[derive(Bundle)]
-struct SceneRoot {
-    test: Position,
-}
-*/
+
 fn loading_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -120,22 +115,6 @@ fn check_for_loaded(
     state: Res<State<GameState>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    /*
-    let mut all_done = true;
-
-    let data = asset_server.load_state(handle);
-        match data {
-            bevy::asset::LoadState::NotLoaded | bevy::asset::LoadState::Loading => {
-                all_done = false;
-                break;
-            }
-            bevy::asset::LoadState::Loaded => {}
-            bevy::asset::LoadState::Failed => {
-                panic!("This is an example and should not fail")
-            }
-        }
-    }*/
-
     if asset_server.is_loaded_with_dependencies(&handles.0) {
         let state = state.next_state().unwrap();
         next_state.set(state);

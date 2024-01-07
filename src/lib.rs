@@ -1,4 +1,5 @@
 #![feature(trivial_bounds)]
+
 use bevy::prelude::*;
 use bevy_app::App;
 
@@ -9,6 +10,7 @@ mod runner;
 mod systems;
 
 pub struct CrosstermPlugin;
+
 impl Plugin for CrosstermPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Cursor::default())
@@ -18,7 +20,7 @@ impl Plugin for CrosstermPlugin {
             // Custom assets
             .register_asset_loader(asset_loaders::SpriteLoader)
             .init_asset::<components::Sprite>()
-            .register_asset_loader(crate::asset_loaders::StyleMapLoader)
+            .register_asset_loader(asset_loaders::StyleMapLoader)
             .init_asset::<components::StyleMap>()
             // Crossterm events
             .add_event::<CrosstermKeyEventWrapper>()
@@ -43,13 +45,16 @@ impl Plugin for CrosstermPlugin {
 
 #[derive(Event)]
 pub struct CrosstermKeyEventWrapper(pub crossterm::event::KeyEvent);
+
 impl From<crossterm::event::KeyEvent> for CrosstermKeyEventWrapper {
     fn from(event: crossterm::event::KeyEvent) -> Self {
         CrosstermKeyEventWrapper(event)
     }
 }
+
 #[derive(Event)]
 pub struct CrosstermMouseEventWrapper(pub crossterm::event::MouseEvent);
+
 impl From<crossterm::event::MouseEvent> for CrosstermMouseEventWrapper {
     fn from(event: crossterm::event::MouseEvent) -> Self {
         CrosstermMouseEventWrapper(event)
@@ -80,7 +85,7 @@ impl CrosstermWindowSettings {
         &self.title
     }
 
-    pub fn set_title<T: std::string::ToString>(&mut self, title: T) -> &mut Self {
+    pub fn set_title<T: ToString>(&mut self, title: T) -> &mut Self {
         self.title = Some(title.to_string());
         self
     }
@@ -150,19 +155,3 @@ pub struct Cursor {
     pub y: i32,
     pub hidden: bool,
 }
-
-//TODO unsure how to handle schedules in bevy 0.11
-// pub mod stage {
-//     use bevy_ecs::schedule::ScheduleLabel;
-//
-//     pub const PRE_RENDER: &str = "pre_render";
-//     pub const RENDER: &str = "render";
-//     pub const POST_RENDER: &str = "post_render";
-//
-//     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-//     pub struct PreRender;
-//     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-//     pub struct Render;
-//     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-//     pub struct PostRender;
-// }
