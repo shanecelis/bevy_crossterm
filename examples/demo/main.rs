@@ -6,6 +6,7 @@ use bevy_crossterm::CrosstermKeyEventWrapper;
 use std::default::Default;
 use std::time::Duration;
 
+use bevy::log::LogPlugin;
 mod animation;
 mod colors;
 mod finale;
@@ -47,7 +48,11 @@ pub fn main() {
         .add_plugins(bevy_app::ScheduleRunnerPlugin::run_loop(
             Duration::from_millis(16),
         ))
-        .add_plugins(DefaultPlugins)
+        // Disable logging, which would otherwise appear randomly.
+        .add_plugins(DefaultPlugins.set(LogPlugin {
+            filter: "off".into(),
+            level: bevy::log::Level::ERROR,
+        }))
         .add_plugins(CrosstermPlugin)
         .add_state::<GameState>()
         .add_systems(Startup, loading_system)
