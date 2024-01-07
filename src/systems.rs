@@ -326,9 +326,7 @@ pub(crate) fn calculate_entities_to_redraw(
     //let removed = all.removed::<Handle<Sprite>>();
 
     for entity in removed.read() {
-        if let Ok(e) = all.get(entity) {
-            entities.to_clear.insert(e.0);
-        }
+        entities.to_clear.insert(entity);
     }
 
     for ent_to_draw in draw_set.iter() {

@@ -24,15 +24,20 @@ impl Plugin for CrosstermPlugin {
             .add_event::<CrosstermKeyEventWrapper>()
             .add_event::<CrosstermMouseEventWrapper>()
             .set_runner(runner::crossterm_runner)
-            // Systems and stages
+            // TODO check if asset events work correctly this way
+            // Old comment:
             // This must be before LAST because change tracking is cleared during LAST, but AssetEvents are published
             // after POST_UPDATE. The timing for all these things is pretty delicate
-            // ! replace stages with schedules (https://bevyengine.org/learn/migration-guides/0.9-0.10/#stages)
-            .add_systems(PostUpdate, systems::add_previous_position)
-            // Needs asset events, and they aren't created until after POST_UPDATE, so we put them in PRE_RENDER
-            .add_systems(PreUpdate, systems::calculate_entities_to_redraw)
-            .add_systems(Update, systems::crossterm_render)
-            .add_systems(PostUpdate, systems::update_previous_position);
+            .add_systems(
+                PostUpdate,
+                (
+                    systems::add_previous_position,
+                    systems::calculate_entities_to_redraw,
+                    systems::crossterm_render,
+                    systems::update_previous_position,
+                )
+                    .chain(),
+            );
     }
 }
 
