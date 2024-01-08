@@ -19,6 +19,7 @@ impl CrosstermWindow {
             term,
             crossterm::terminal::EnterAlternateScreen,
             crossterm::event::EnableMouseCapture,
+            crossterm::event::EnableFocusChange,
             crossterm::terminal::Clear(crossterm::terminal::ClearType::All,),
         )
         .expect("Could not queue commands");
@@ -56,6 +57,7 @@ impl Drop for CrosstermWindow {
         queue!(
             term,
             crossterm::event::DisableMouseCapture,
+            crossterm::event::DisableFocusChange,
             crossterm::cursor::Show,
         )
         .expect("Could not queue commands");
@@ -192,8 +194,24 @@ fn crossterm_events(world: &mut bevy_ecs::world::World, bevy_window: Entity) {
                     window_component.height = height;
                     window_component.width = width;
                 }
-                // TODO handle other events
-                _ => {}
+
+                // Send a bevy window focused event
+                crossterm::event::Event::FocusGained => {
+                    world.send_event(bevy::window::WindowFocused {
+                        window: bevy_window,
+                        focused: true,
+                    })
+                }
+                crossterm::event::Event::FocusLost => {
+                    world.send_event(bevy::window::WindowFocused {
+                        window: bevy_window,
+                        focused: false,
+                    })
+                }
+
+                // Ignore bracketed paste. It's not well supported on windows.
+                // If it's ever required it should be easy to add a wrapper for it.
+                crossterm::event::Event::Paste(_) => {}
             }
         } else {
             break;

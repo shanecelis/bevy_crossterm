@@ -46,20 +46,9 @@ impl Plugin for CrosstermPlugin {
 #[derive(Event)]
 pub struct CrosstermKeyEventWrapper(pub crossterm::event::KeyEvent);
 
-impl From<crossterm::event::KeyEvent> for CrosstermKeyEventWrapper {
-    fn from(event: crossterm::event::KeyEvent) -> Self {
-        CrosstermKeyEventWrapper(event)
-    }
-}
-
 #[derive(Event)]
 pub struct CrosstermMouseEventWrapper(pub crossterm::event::MouseEvent);
 
-impl From<crossterm::event::MouseEvent> for CrosstermMouseEventWrapper {
-    fn from(event: crossterm::event::MouseEvent) -> Self {
-        CrosstermMouseEventWrapper(event)
-    }
-}
 
 #[derive(Clone, Eq, PartialEq, Resource)]
 pub struct CrosstermWindowSettings {
