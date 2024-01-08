@@ -4,7 +4,6 @@ use bevy_crossterm::prelude::*;
 use bevy_asset::LoadedFolder;
 use bevy_crossterm::CrosstermKeyEventWrapper;
 use std::default::Default;
-use std::time::Duration;
 
 use bevy::log::LogPlugin;
 mod animation;
@@ -46,13 +45,18 @@ pub fn main() {
     App::new()
         .insert_resource(settings)
         .add_plugins(bevy_app::ScheduleRunnerPlugin::run_loop(
-            Duration::from_millis(16),
+            std::time::Duration::from_millis(16),
         ))
-        // Disable logging, which would otherwise appear randomly.
-        .add_plugins(DefaultPlugins.set(LogPlugin {
-            filter: "off".into(),
-            level: bevy::log::Level::ERROR,
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(LogPlugin {
+                    filter: "off".into(),
+                    level: bevy::log::Level::ERROR,
+                })
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions::with_num_threads(1),
+                }),
+        )
         .add_plugins(CrosstermPlugin)
         .add_state::<GameState>()
         .add_systems(Startup, loading_system)

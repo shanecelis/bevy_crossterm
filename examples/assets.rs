@@ -3,7 +3,7 @@ use bevy_crossterm::prelude::*;
 
 use bevy_asset::LoadedUntypedAsset;
 use std::default::Default;
-use std::time::Duration;
+use bevy::log::LogPlugin;
 
 #[derive(Clone, States, Default, Eq, PartialEq, Hash, Debug)]
 enum GameState {
@@ -28,23 +28,26 @@ pub fn main() {
     settings.set_title("Assets example");
 
     App::new()
-        // Add our window settings
         .insert_resource(settings)
-        // Set some options in bevy to make our program a little less resource intensive - it's just a terminal game
-        // no need to try and go nuts
-        // .insert_resource(TaskPoolOptions::with_num_threads(1))
-        // The Crossterm runner respects the schedulerunnersettings. No need to run as fast as humanly
-        // possible - 20 fps should be more than enough for a scene that never changes
         .add_plugins(bevy_app::ScheduleRunnerPlugin::run_loop(
-            Duration::from_millis(50),
+            std::time::Duration::from_millis(50),
         ))
+        .add_plugins(
+            DefaultPlugins
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions::with_num_threads(1),
+                })
+                .set(LogPlugin {
+                    filter: "off".into(),
+                    level: bevy::log::Level::ERROR,
+                }),
+        )
+        .add_plugins(CrosstermPlugin)
         .add_state::<GameState>()
         .add_systems(OnEnter(GameState::Loading), default_settings)
         .add_systems(OnEnter(GameState::Loading), load_assets)
         .add_systems(Update, check_for_loaded)
         .add_systems(OnEnter(GameState::Running), create_entities)
-        .add_plugins(DefaultPlugins)
-        .add_plugins(CrosstermPlugin)
         .run();
 }
 

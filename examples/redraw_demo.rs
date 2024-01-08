@@ -1,4 +1,5 @@
 use bevy::app::AppExit;
+use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
@@ -19,17 +20,24 @@ pub fn main() {
 
     App::new()
         .insert_resource(settings)
-        // .add_resource(bevy::core::DefaultTaskPoolOptions::with_num_threads(1))
+        .add_plugins(bevy_app::ScheduleRunnerPlugin::run_loop(
+            std::time::Duration::from_millis(16),
+        ))
+        .add_plugins(
+            DefaultPlugins
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions::with_num_threads(1),
+                })
+                .set(LogPlugin {
+                    filter: "off".into(),
+                    level: bevy::log::Level::ERROR,
+                }),
+        )
+        .add_plugins(CrosstermPlugin)
         .insert_resource(Countdown(Timer::new(
             std::time::Duration::from_millis(250),
             TimerMode::Repeating,
         )))
-        // 60Hz update is probably a bit gratuitous for this but eh
-        .add_plugins((
-            DefaultPlugins,
-            CrosstermPlugin,
-            // ScheduleRunnerPlugin::run_loop(std::time::Duration::from_millis(16)),
-        ))
         .add_systems(Startup, startup_system)
         .add_systems(Update, update)
         .run();
@@ -72,8 +80,8 @@ fn startup_system(
         ..Default::default()
     });
     // Moving entity that ensures the box will get redrawn each step the entity passes over it
-    commands
-        .spawn((SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             sprite: small_box,
             position: Position {
                 x: window.width() as i32 / 3,
@@ -82,8 +90,10 @@ fn startup_system(
             },
             stylemap: plain.clone(),
             ..Default::default()
-        }, Tag));  // Tagged with a unit struct so we can find it later to update it
-    // Static entity that ensures we redraw all entities that need to
+        },
+        Tag,
+    )); // Tagged with a unit struct so we can find it later to update it
+        // Static entity that ensures we redraw all entities that need to
     commands.spawn(SpriteBundle {
         sprite: sprites.add(Sprite::new("#")),
         position: Position {

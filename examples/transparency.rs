@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
 use std::default::Default;
+use bevy::log::LogPlugin;
 
 pub fn main() {
     // Window settings must happen before the crossterm Plugin
@@ -10,12 +11,20 @@ pub fn main() {
 
     App::new()
         .insert_resource(settings)
-        // .insert_resource(bevy::core::DefaultTaskPoolOptions::with_num_threads(1))
-        // .insert_resource(bevy::app::ScheduleRunnerSettings::run_loop(
-        //     std::time::Duration::from_millis(50),
-        // ))
-        // .insert_resource(Timer::new(std::time::Duration::from_millis(250), true))
-        .add_plugins((DefaultPlugins, CrosstermPlugin))
+        .add_plugins(bevy_app::ScheduleRunnerPlugin::run_loop(
+            std::time::Duration::from_millis(50),
+        ))
+        .add_plugins(
+            DefaultPlugins
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions::with_num_threads(1),
+                })
+                .set(LogPlugin {
+                    filter: "off".into(),
+                    level: bevy::log::Level::ERROR,
+                }),
+        )
+        .add_plugins(CrosstermPlugin)
         .add_systems(Startup, startup_system)
         .run();
 }
@@ -53,7 +62,7 @@ fn startup_system(
         stylemap: white_bg.clone(),
         ..Default::default()
     });
-    // Moving entity that ensures the box will get redrawn each step the entity passes over it
+    // Entity on top, transparent, so we can see the entity below
     commands.spawn(SpriteBundle {
         sprite: sprites.add(Sprite::new(SMALL_BOX)),
         position: Position {
