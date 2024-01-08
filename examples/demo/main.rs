@@ -110,9 +110,6 @@ fn loading_system(
     // Load the assets we want
     let handle = asset_server.load_folder("demo");
 
-    // TODO
-    // asset_server.watch_for_changes().unwrap();
-
     commands.insert_resource(CrosstermAssets(handle));
 }
 

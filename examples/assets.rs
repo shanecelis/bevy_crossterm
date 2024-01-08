@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
+use bevy::log::LogPlugin;
 use bevy_asset::LoadedUntypedAsset;
 use std::default::Default;
-use bevy::log::LogPlugin;
 
 #[derive(Clone, States, Default, Eq, PartialEq, Hash, Debug)]
 enum GameState {
@@ -104,7 +104,8 @@ fn create_entities(
     mut commands: Commands,
     window: Query<&CrosstermWindow>,
     asset_server: Res<AssetServer>,
-    sprites: Res<Assets<Sprite>>,
+    mut sprites: ResMut<Assets<Sprite>>,
+    mut stylemaps: ResMut<Assets<StyleMap>>,
 ) {
     // I want to center the title, so i needed to wait until it was loaded before I could actually access
     // the underlying data to see how wide the sprite is and do the math
@@ -121,6 +122,25 @@ fn create_entities(
         sprite: title_handle.clone(),
         position: Position::with_xy(center_x, center_y),
         stylemap: asset_server.get_handle("demo/title.stylemap").unwrap(),
+        ..Default::default()
+    });
+
+    let text = Sprite::new(
+        "You may freely change demo/title.txt and demo/title.stylemap,\n\
+    bevy_crossterm will automatically reload changed assets and redraw affected sprites.",
+    );
+
+    let center_x = window.x_center() as i32 - text.x_center() as i32;
+    let center_y = window.y_center() as i32 - text.y_center() as i32;
+
+    let text = sprites.add(text);
+    let color = stylemaps.add(StyleMap::default());
+
+    // Spawn two sprites into the world
+    commands.spawn(SpriteBundle {
+        sprite: text,
+        position: Position::with_xy(center_x, center_y + 6),
+        stylemap: color.clone(),
         ..Default::default()
     });
 }

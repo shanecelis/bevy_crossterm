@@ -21,7 +21,7 @@ pub fn setup(
     for ch in goodbye.data().chars() {
         if ch == '<' || ch == '3' {
             style.map[0].push(Style::new(
-                Colors::new(Color::White, Color::DarkRed),
+                Colors::fg(Color::DarkRed),
                 Attributes::from(Attribute::Bold),
             ));
         } else {

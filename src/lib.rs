@@ -104,21 +104,6 @@ pub struct CrosstermWindow {
     title: Option<String>,
 }
 
-impl Default for CrosstermWindow {
-    fn default() -> Self {
-        let (width, height) =
-            crossterm::terminal::size().expect("Could not read current terminal size");
-
-        let colors = components::Colors::term_colors();
-        CrosstermWindow {
-            height,
-            width,
-            colors,
-            title: None,
-        }
-    }
-}
-
 impl CrosstermWindow {
     pub fn height(&self) -> u16 {
         self.height
