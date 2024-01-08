@@ -10,7 +10,7 @@ use bevy_ecs::event::Events;
 use crossterm::{queue, ExecutableCommand, QueueableCommand};
 
 impl CrosstermWindow {
-    /// Creates a new CrosstermWindow and prepares crossterm for rendering.
+    /// Creates a new `CrosstermWindow` and prepares crossterm for rendering.
     fn new(settings: &CrosstermWindowSettings) -> Self {
         crossterm::terminal::enable_raw_mode().expect("Could not enable crossterm raw mode");
 
@@ -73,13 +73,13 @@ pub fn crossterm_runner(mut app: App) {
     // There should only be one ScheduleRunnerPlugin, but if there isn't, add one
     // (also there might be a better way to do this)
     let settings = app.get_added_plugins::<bevy_app::ScheduleRunnerPlugin>();
-    let settings = if !settings.is_empty() {
-        settings[0]
-    } else {
+    let settings = if settings.is_empty() {
         app.add_plugins(bevy_app::ScheduleRunnerPlugin::run_loop(
             std::time::Duration::from_millis(50),
         ));
         app.get_added_plugins::<bevy_app::ScheduleRunnerPlugin>()[0]
+    } else {
+        settings[0]
     };
 
     match settings.run_mode {
@@ -200,13 +200,13 @@ fn crossterm_events(world: &mut bevy_ecs::world::World, bevy_window: Entity) {
                     world.send_event(bevy::window::WindowFocused {
                         window: bevy_window,
                         focused: true,
-                    })
+                    });
                 }
                 crossterm::event::Event::FocusLost => {
                     world.send_event(bevy::window::WindowFocused {
                         window: bevy_window,
                         focused: false,
-                    })
+                    });
                 }
 
                 // Ignore bracketed paste. It's not well supported on windows.

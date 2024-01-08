@@ -40,7 +40,7 @@ pub(crate) fn add_previous_position(
     // Bevy loads assets asynchronously so if we couldn't find an asset, we add it to this list and
     // try again until it loads
     let mut entities_to_remove = Vec::new();
-    for entity in entities_without_assets.iter() {
+    for entity in &entities_without_assets {
         let data = all.get(*entity);
         if data.is_err() {
             continue;
@@ -64,7 +64,7 @@ pub(crate) fn add_previous_position(
         }
     }
 
-    for entity in entities_to_remove.iter() {
+    for entity in &entities_to_remove {
         entities_without_assets.remove(entity);
     }
 }
@@ -75,7 +75,7 @@ pub(crate) fn update_previous_position(
     frames: Res<Assets<Sprite>>,
     mut positions: Query<(Entity, &Position, &Handle<Sprite>, &components::Visible)>,
 ) {
-    for (entity, new_pos, sprite, _) in positions.iter_mut() {
+    for (entity, new_pos, sprite, _) in &mut positions {
         if let Some(sprite) = frames.get(sprite) {
             let prev_pos = components::PreviousPosition {
                 x: new_pos.x,
@@ -231,7 +231,7 @@ pub(crate) fn calculate_entities_to_redraw(
     // Find all entities that either became invisible, or changed their size or moved. (cleared is good enough for now)
     // Figure out what their previous bounding box is and query all current positions to see what sprites are under it
     // Add the collided entities to draw_set
-    let mut new_ents = Vec::new();
+    let mut collided_entities = Vec::new();
     let mut bboxes = Vec::new();
     for (entity, _, sprite, pos, _) in all.iter() {
         let sprite_data = sprites.get(sprite);
@@ -272,14 +272,14 @@ pub(crate) fn calculate_entities_to_redraw(
             // dbg!("Found Entity: ", bb.inner);
             if !draw_set.contains(&bb.inner) {
                 draw_set.insert(bb.inner);
-                new_ents.push(bb.inner);
+                collided_entities.push(bb.inner);
             }
         });
     }
 
     let mut cur_index = 0;
-    while cur_index < new_ents.len() {
-        let ent = new_ents[cur_index];
+    while cur_index < collided_entities.len() {
+        let ent = collided_entities[cur_index];
         cur_index += 1;
 
         let prev_data = previous_details.0.get(&ent);
@@ -301,7 +301,7 @@ pub(crate) fn calculate_entities_to_redraw(
             // dbg!("Found Entity: ", bb.inner);
             if !draw_set.contains(&bb.inner) {
                 draw_set.insert(bb.inner);
-                new_ents.push(bb.inner);
+                collided_entities.push(bb.inner);
             }
         });
     }

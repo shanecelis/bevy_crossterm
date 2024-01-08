@@ -62,59 +62,52 @@ pub fn setup(
     let grey_handle = stylemaps.add(StyleMap::with_fg(Color::DarkGrey));
     let transparent = Visible::transparent();
 
-    commands
-        .spawn(SpriteBundle {
-            sprite: sprites.add(explain_sprite),
-            stylemap: default_style.clone(),
-            position: explain_pos,
-            ..Default::default()
-        });
+    commands.spawn(SpriteBundle {
+        sprite: sprites.add(explain_sprite),
+        stylemap: default_style.clone(),
+        position: explain_pos,
+        ..Default::default()
+    });
 
     // These are the two boxes separately
-    commands
-        .spawn(SpriteBundle {
-            sprite: asset_server.get_handle("demo/big_box.txt").unwrap(),
-            position: big_box_pos,
-            stylemap: grey_handle.clone(),
-            ..Default::default()
-        });
-    commands
-        .spawn(SpriteBundle {
-            sprite: asset_server.get_handle("demo/small_box.txt").unwrap(),
-            stylemap: white_handle.clone(),
-            position: small_box_pos,
-            ..Default::default()
-        });
+    commands.spawn(SpriteBundle {
+        sprite: asset_server.get_handle("demo/big_box.txt").unwrap(),
+        position: big_box_pos,
+        stylemap: grey_handle.clone(),
+        ..Default::default()
+    });
+    commands.spawn(SpriteBundle {
+        sprite: asset_server.get_handle("demo/small_box.txt").unwrap(),
+        stylemap: white_handle.clone(),
+        position: small_box_pos,
+        ..Default::default()
+    });
 
     // These are the sprites that make up the non-transparent demo
-    commands
-        .spawn(SpriteBundle {
-            sprite: big_box_handle.clone(),
-            position: big_combo_pos,
-            stylemap: grey_handle.clone(),
-            ..Default::default()
-        });
-    commands
-        .spawn(SpriteBundle {
-            sprite: small_box_handle.clone(),
-            position: small_combo_pos,
-            stylemap: white_handle.clone(),
-            ..Default::default()
-        });
+    commands.spawn(SpriteBundle {
+        sprite: big_box_handle.clone(),
+        position: big_combo_pos,
+        stylemap: grey_handle.clone(),
+        ..Default::default()
+    });
+    commands.spawn(SpriteBundle {
+        sprite: small_box_handle.clone(),
+        position: small_combo_pos,
+        stylemap: white_handle.clone(),
+        ..Default::default()
+    });
 
     // These are the sprites that make up the trasparent demo
-    commands
-        .spawn(SpriteBundle {
-            sprite: big_box_handle.clone(),
-            position: big_combo_trans_pos,
-            stylemap: grey_handle.clone(),
-            ..Default::default()
-        });
-    commands
-        .spawn(SpriteBundle {
-            sprite: small_box_handle.clone(),
-            position: small_combo_trans_pos,
-            stylemap: white_handle.clone(),
-            visible: transparent,
-        });
+    commands.spawn(SpriteBundle {
+        sprite: big_box_handle.clone(),
+        position: big_combo_trans_pos,
+        stylemap: grey_handle.clone(),
+        ..Default::default()
+    });
+    commands.spawn(SpriteBundle {
+        sprite: small_box_handle.clone(),
+        position: small_combo_trans_pos,
+        stylemap: white_handle.clone(),
+        visible: transparent,
+    });
 }

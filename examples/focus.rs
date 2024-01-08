@@ -49,8 +49,12 @@ fn startup_system(
 ) {
     cursor.hidden = true;
 
-    let text = sprites.add(Sprite::new("If the terminal loses focus, the animation will pause."));
-    let text2 = sprites.add(Sprite::new("If the terminal regains focus, the animation will continue."));
+    let text = sprites.add(Sprite::new(
+        "If the terminal loses focus, the animation will pause.",
+    ));
+    let text2 = sprites.add(Sprite::new(
+        "If the terminal regains focus, the animation will continue.",
+    ));
     let plain = stylemaps.add(StyleMap::default());
 
     // Static entity
@@ -60,12 +64,15 @@ fn startup_system(
         ..Default::default()
     });
     // Moving entity that will stop if we loose focus
-    commands.spawn((SpriteBundle {
-        sprite: text2,
-        stylemap: plain.clone(),
-        position: Position::with_y(2),
-        ..Default::default()
-    }, Tag,));
+    commands.spawn((
+        SpriteBundle {
+            sprite: text2,
+            stylemap: plain.clone(),
+            position: Position::with_y(2),
+            ..Default::default()
+        },
+        Tag,
+    ));
 }
 
 fn update(

@@ -37,34 +37,30 @@ pub fn setup(
 
     let color = stylemaps.add(StyleMap::default());
 
-    commands
-        .spawn(SpriteBundle {
-            sprite: title_handle,
-            position: title_pos,
-            stylemap: asset_server.load("demo/title.stylemap"),
-            ..Default::default()
-        });
-    commands
-        .spawn(SpriteBundle {
-            sprite: sprites.add(welcome_sprite),
-            position: welcome_pos,
-            stylemap: stylemaps.add(StyleMap::with_attribs(Attributes::from(
-                &[Attribute::Bold, Attribute::Underlined][..],
-            ))),
-            ..Default::default()
-        });
-    commands
-        .spawn(SpriteBundle {
-            sprite: sprites.add(explain_sprite),
-            position: explain_pos,
-            stylemap: color.clone(),
-            ..Default::default()
-        });
-    commands
-        .spawn(SpriteBundle {
-            sprite: sprites.add(press_sprite),
-            position: press_pos,
-            stylemap: stylemaps.add(StyleMap::with_attrib(Attribute::Italic)),
-            ..Default::default()
-        });
+    commands.spawn(SpriteBundle {
+        sprite: title_handle,
+        position: title_pos,
+        stylemap: asset_server.load("demo/title.stylemap"),
+        ..Default::default()
+    });
+    commands.spawn(SpriteBundle {
+        sprite: sprites.add(welcome_sprite),
+        position: welcome_pos,
+        stylemap: stylemaps.add(StyleMap::with_attribs(Attributes::from(
+            &[Attribute::Bold, Attribute::Underlined][..],
+        ))),
+        ..Default::default()
+    });
+    commands.spawn(SpriteBundle {
+        sprite: sprites.add(explain_sprite),
+        position: explain_pos,
+        stylemap: color.clone(),
+        ..Default::default()
+    });
+    commands.spawn(SpriteBundle {
+        sprite: sprites.add(press_sprite),
+        position: press_pos,
+        stylemap: stylemaps.add(StyleMap::with_attrib(Attribute::Italic)),
+        ..Default::default()
+    });
 }

@@ -49,7 +49,6 @@ pub struct CrosstermKeyEventWrapper(pub crossterm::event::KeyEvent);
 #[derive(Event)]
 pub struct CrosstermMouseEventWrapper(pub crossterm::event::MouseEvent);
 
-
 #[derive(Clone, Eq, PartialEq, Resource)]
 pub struct CrosstermWindowSettings {
     colors: components::Colors,

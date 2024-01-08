@@ -29,11 +29,10 @@ pub fn setup(
         }
     }
 
-    commands
-        .spawn(SpriteBundle {
-            sprite: sprites.add(goodbye),
-            position: goodbye_pos,
-            stylemap: stylemaps.add(style),
-            ..Default::default()
-        });
+    commands.spawn(SpriteBundle {
+        sprite: sprites.add(goodbye),
+        position: goodbye_pos,
+        stylemap: stylemaps.add(style),
+        ..Default::default()
+    });
 }

@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
-use std::default::Default;
 use bevy::log::LogPlugin;
+use std::default::Default;
 
 pub fn main() {
     // Window settings must happen before the crossterm Plugin
