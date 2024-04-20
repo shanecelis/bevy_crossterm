@@ -2,14 +2,14 @@ use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
-// This is probably the busiest example. This demonstrates that bevy_crossterm's incrememntal drawing
+// This is probably the busiest example. This demonstrates that bevy_crossterm's incremental drawing
 // system will properly redraw sprites when required. To simulate movement - bevy_crossterm blanks out the
 // previous position/size of any sprites that changed before they're drawn again. This leave empty holes if
 // a sprite changed while over top of another sprite. This is illustrated by the "@" going on top of the big box.
 // bevy_crossterm runs a collision detection routine and sees that the box is going to be partially erased when
 // the "@" is cleared, so it adds it to the draw candidate list even though it never "changed".
 
-// Furthermore, this example also illustrates that the collision detection happens recusively - if it weren't for that,
+// Furthermore, this example also illustrates that the collision detection happens recursively - if it weren't for that,
 // the "#" would be overwritten when the box is redrawn.
 
 pub fn main() {
@@ -83,7 +83,7 @@ fn startup_system(
             stylemap: plain.clone(),
             ..Default::default()
         }, Tag));  // Tagged with a unit struct so we can find it later to update it
-                  // Static entity that ensures we redraw all entities that need to
+    // Static entity that ensures we redraw all entities that need to
     commands.spawn(SpriteBundle {
         sprite: sprites.add(Sprite::new("#")),
         position: Position {

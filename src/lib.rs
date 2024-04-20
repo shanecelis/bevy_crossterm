@@ -1,7 +1,7 @@
 #![feature(trivial_bounds)]
+
 use bevy::prelude::*;
 use bevy_app::App;
-use bevy_asset::AddAsset;
 
 mod asset_loaders;
 pub mod components;
@@ -10,40 +10,51 @@ mod runner;
 mod systems;
 
 pub struct CrosstermPlugin;
+
 impl Plugin for CrosstermPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Cursor::default())
             .insert_resource(components::PreviousEntityDetails::default())
             .insert_resource(components::EntitiesToRedraw::default())
             .insert_resource(components::PreviousWindowColors::default())
-            .add_asset::<components::Sprite>()
-            .add_asset::<components::StyleMap>()
-            .init_asset_loader::<asset_loaders::SpriteLoader>()
-            .init_asset_loader::<asset_loaders::StyleMapLoader>()
+            // Custom assets
+            .register_asset_loader(asset_loaders::SpriteLoader)
+            .init_asset::<components::Sprite>()
+            .register_asset_loader(asset_loaders::StyleMapLoader)
+            .init_asset::<components::StyleMap>()
+            // Crossterm events
             .add_event::<CrosstermKeyEventWrapper>()
             .add_event::<CrosstermMouseEventWrapper>()
             .set_runner(runner::crossterm_runner)
-            // Systems and stages
+            // TODO check if asset events work correctly this way
+            // Old comment:
             // This must be before LAST because change tracking is cleared during LAST, but AssetEvents are published
             // after POST_UPDATE. The timing for all these things is pretty delicate
-            // ! replace stages with schedules (https://bevyengine.org/learn/migration-guides/0.9-0.10/#stages)
-            .add_systems(PostUpdate, systems::add_previous_position)
-            // Needs asset events, and they aren't created until after POST_UPDATE, so we put them in PRE_RENDER
-            .add_systems(PreUpdate, systems::calculate_entities_to_redraw)
-            .add_systems(Update, systems::crossterm_render)
-            .add_systems(PostUpdate, systems::update_previous_position);
+            .add_systems(
+                PostUpdate,
+                (
+                    systems::add_previous_position,
+                    systems::calculate_entities_to_redraw,
+                    systems::crossterm_render,
+                    systems::update_previous_position,
+                )
+                    .chain(),
+            );
     }
 }
 
 #[derive(Event)]
 pub struct CrosstermKeyEventWrapper(pub crossterm::event::KeyEvent);
+
 impl From<crossterm::event::KeyEvent> for CrosstermKeyEventWrapper {
     fn from(event: crossterm::event::KeyEvent) -> Self {
         CrosstermKeyEventWrapper(event)
     }
 }
+
 #[derive(Event)]
 pub struct CrosstermMouseEventWrapper(pub crossterm::event::MouseEvent);
+
 impl From<crossterm::event::MouseEvent> for CrosstermMouseEventWrapper {
     fn from(event: crossterm::event::MouseEvent) -> Self {
         CrosstermMouseEventWrapper(event)
@@ -74,7 +85,7 @@ impl CrosstermWindowSettings {
         &self.title
     }
 
-    pub fn set_title<T: std::string::ToString>(&mut self, title: T) -> &mut Self {
+    pub fn set_title<T: ToString>(&mut self, title: T) -> &mut Self {
         self.title = Some(title.to_string());
         self
     }
@@ -144,19 +155,3 @@ pub struct Cursor {
     pub y: i32,
     pub hidden: bool,
 }
-
-//TODO unsure how to handle schedules in bevy 0.11
-// pub mod stage {
-//     use bevy_ecs::schedule::ScheduleLabel;
-//
-//     pub const PRE_RENDER: &str = "pre_render";
-//     pub const RENDER: &str = "render";
-//     pub const POST_RENDER: &str = "post_render";
-//
-//     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-//     pub struct PreRender;
-//     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-//     pub struct Render;
-//     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-//     pub struct PostRender;
-// }

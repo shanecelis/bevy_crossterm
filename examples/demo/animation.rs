@@ -1,19 +1,26 @@
+use crate::GameState;
 use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
+use bevy_crossterm::CrosstermKeyEventWrapper;
 
+#[derive(Component)]
 pub struct Velocity {
     pub x: i32,
     pub y: i32,
 }
 
+#[derive(Resource)]
+pub struct AnimationTimer(Timer);
+
 pub fn setup(
-    commands: &mut Commands,
-    scene_root: Res<Entity>,
-    window: Res<CrosstermWindow>,
+    mut commands: Commands,
+    window: Query<&CrosstermWindow>,
     asset_server: Res<AssetServer>,
     mut sprites: ResMut<Assets<Sprite>>,
     mut stylemaps: ResMut<Assets<StyleMap>>,
 ) {
+    let window = window.single();
+
     let default_style = stylemaps.add(StyleMap::default());
     let white = stylemaps.add(StyleMap::with_bg(Color::White));
 
@@ -35,56 +42,64 @@ pub fn setup(
             position: text_pos,
             stylemap: default_style.clone(),
             ..Default::default()
-        })
-        .with(Parent(*scene_root))
+        });
+
+    commands
         .spawn(SpriteBundle {
             sprite: sprites.add(hor_divider),
             position: divider_pos,
             stylemap: default_style.clone(),
             ..Default::default()
-        })
-        .with(Parent(*scene_root))
+        });
+
+    commands
         .spawn(SpriteBundle {
             sprite: sprites.add(test_box),
             stylemap: white.clone(),
             position: test_pos,
             ..Default::default()
-        })
-        .with(Parent(*scene_root))
+        });
+
+    commands
         .spawn(SpriteBundle {
-            sprite: asset_server.get_handle("demo/bounce.txt"),
-            stylemap: asset_server.get_handle("demo/bounce.stylemap"),
+            sprite: asset_server.get_handle("demo/bounce.txt").unwrap(),
+            stylemap: asset_server.get_handle("demo/bounce.stylemap").unwrap(),
             position: Position::new(window.x_center() as i32, window.y_center() as i32, 1),
             ..Default::default()
         })
-        .with(Parent(*scene_root))
-        .with(Velocity { x: 1, y: 1 });
+        .insert(Velocity { x: 1, y: 1 });
 
-    commands.insert_resource(Timer::new(std::time::Duration::from_millis(120), true));
+    commands.insert_resource(AnimationTimer(Timer::new(
+        std::time::Duration::from_millis(120),
+        TimerMode::Repeating,
+    )));
 }
 
 pub fn update(
-    keys: Res<Events<KeyEvent>>,
-    mut state: ResMut<State<crate::GameState>>,
+    keys: EventReader<CrosstermKeyEventWrapper>,
+    state: ResMut<State<GameState>>,
     mut app_exit: ResMut<Events<bevy::app::AppExit>>,
-    mut timer: ResMut<Timer>,
-    window: Res<CrosstermWindow>,
+    mut timer: ResMut<AnimationTimer>,
+    window: Query<&CrosstermWindow>,
     time: Res<Time>,
     sprites: Res<Assets<Sprite>>,
     mut box_sprite: Query<(&mut Position, &mut Velocity, &Handle<Sprite>)>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
-    timer.tick(time.delta_seconds());
+    let window = window.single();
+
+    timer.0.tick(time.delta());
 
     if crate::detect_keypress(keys) {
-        if let Some(new_state) = state.next_state() {
-            state.set_next(new_state).unwrap();
+        if let Some(state) = state.next_state() {
+            next_state.set(state);
         } else {
             app_exit.send(bevy::app::AppExit);
         }
         return;
     }
 
-    if timer.just_finished() {
+    if timer.0.just_finished() {
         let (mut pos, mut vel, sprite) = box_sprite.iter_mut().next().unwrap();
         let sprite = sprites.get(sprite).unwrap();
 
