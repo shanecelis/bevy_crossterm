@@ -10,22 +10,22 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.12", default-features = false, features = ["bevy_asset"] }
-bevy_asset = "0.12.1"
-bevy_app = "0.12"
-bevy_ecs = "0.12"
+bevy = { version = "0.13", default-features = false, features = ["bevy_asset"] }
+bevy_asset = "0.13"
+bevy_app = "0.13"
+bevy_ecs = "0.13"
 crossterm = { version = "0.27", features = ["serde"] }
 ron = "0.8"
 serde = { version = "1.0", features = ["derive"] }
-unicode-segmentation = "1.7"
+unicode-segmentation = "1.11"
 broccoli = "2"
-anyhow = { version = "1.0.79", features = [] }
+thiserror = "1.0.58"
 
 [dev-dependencies]
 # Note that we need "multi-threaded" for "file_watcher" to work (otherwise the game will freeze when assets are modified)
-bevy = { version = "0.12", default-features = false, features = ["bevy_asset", "file_watcher", "multi-threaded"] }
+bevy = { version = "0.13", default-features = false, features = ["bevy_asset", "file_watcher", "multi-threaded"] }
 ron = "0.8"
-textwrap = "0.16.0"
+textwrap = "0.16"
 
 [[example]]
 name = "window"

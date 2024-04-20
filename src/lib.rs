@@ -1,4 +1,4 @@
-#![feature(trivial_bounds)]
+// #![feature(trivial_bounds)]
 
 use bevy::prelude::*;
 use bevy_app::App;

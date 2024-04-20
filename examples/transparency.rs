@@ -22,6 +22,7 @@ pub fn main() {
                 .set(LogPlugin {
                     filter: "off".into(),
                     level: bevy::log::Level::ERROR,
+                    ..default()
                 }),
         )
         .add_plugins(CrosstermPlugin)

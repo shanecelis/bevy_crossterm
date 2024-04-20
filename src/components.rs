@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::reflect::{TypePath, TypeUuid};
+use bevy::reflect::TypePath;
 use bevy::utils::{HashMap, HashSet};
 use bevy_asset::Handle;
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,7 @@ pub struct SpriteBundle {
     pub visible: Visible,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Reflect, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Default, TypePath)]
 pub struct Colors {
     pub foreground: Option<Color>,
     pub background: Option<Color>,
@@ -149,7 +149,7 @@ mod attribute_parser {
 // impl Reflect for StyleAttributes {}
 // impl FromReflect for StyleAttributes {}
 
-#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Reflect)]
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Style {
     pub colors: Colors,
     #[serde(with = "attribute_parser")]
@@ -206,8 +206,7 @@ impl Default for Style {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, PartialEq, Eq, TypeUuid, TypePath, Asset)]
-#[uuid = "a5418d12-e050-498a-a31e-37fd0b6c078d"]
+#[derive(Default, Serialize, Deserialize, PartialEq, Eq, TypePath, Asset)]
 pub struct StyleMap {
     pub style: Style,
     pub map: Vec<Vec<Style>>,
@@ -301,8 +300,7 @@ impl Visible {
     }
 }
 
-#[derive(Default, Eq, PartialEq, Debug, TypeUuid, Reflect, Asset)]
-#[uuid = "f04f5352-e656-4a90-95a5-2269c02d0091"]
+#[derive(Default, Eq, PartialEq, Debug, Reflect, Asset)]
 pub struct Sprite {
     // The whole sprites's data
     data: String,

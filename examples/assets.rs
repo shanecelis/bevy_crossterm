@@ -40,10 +40,11 @@ pub fn main() {
                 .set(LogPlugin {
                     filter: "off".into(),
                     level: bevy::log::Level::ERROR,
+                    ..default()
                 }),
         )
         .add_plugins(CrosstermPlugin)
-        .add_state::<GameState>()
+        .init_state::<GameState>()
         .add_systems(OnEnter(GameState::Loading), default_settings)
         .add_systems(OnEnter(GameState::Loading), load_assets)
         .add_systems(Update, check_for_loaded)

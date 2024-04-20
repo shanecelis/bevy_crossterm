@@ -52,13 +52,14 @@ pub fn main() {
                 .set(LogPlugin {
                     filter: "off".into(),
                     level: bevy::log::Level::ERROR,
+                    ..default()
                 })
                 .set(TaskPoolPlugin {
                     task_pool_options: TaskPoolOptions::with_num_threads(1),
                 }),
         )
         .add_plugins(CrosstermPlugin)
-        .add_state::<GameState>()
+        .init_state::<GameState>()
         .add_systems(Startup, loading_system)
         .add_systems(
             Update,
