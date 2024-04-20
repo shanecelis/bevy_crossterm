@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_crossterm::prelude::*;
 
+use bevy::log::LogPlugin;
 use std::default::Default;
 
 pub fn main() {
@@ -8,20 +9,33 @@ pub fn main() {
     let mut settings = CrosstermWindowSettings::default();
     settings.set_title("Window example");
 
+    // We set some options to make our program a little less resource intensive - it's just a terminal game
+    // no need to try and go nuts
+    // 1. Use only 1 thread
+    // 2. Limit FPS: 20 fps should be more than enough for a scene that never changes
+
     App::new()
         // Add our window settings
         .insert_resource(settings)
-        // Set some options in bevy to make our program a little less resource intensive - it's just a terminal game
-        // no need to try and go nuts
-        // .insert_resource(bevy::core::DefaultTaskPoolOptions::with_num_threads(1))
-        // The Crossterm runner respects the schedulerunnersettings. No need to run as fast as humanly
-        // possible - 20 fps should be more than enough for a scene that never changes
-        // .insert_resource(bevy::app::ScheduleRunnerSettings::run_loop(
-        //     std::time::Duration::from_millis(50),
-        // ))
+        // Limit FPS: The Crossterm runner respects the schedulerunnersettings
+        .add_plugins(bevy_app::ScheduleRunnerPlugin::run_loop(
+            std::time::Duration::from_millis(50),
+        ))
         // Add the DefaultPlugins before the CrosstermPlugin. The crossterm plugin needs bevy's asset server, and if it's
         // not available you'll trigger an assert
-        .add_plugins((DefaultPlugins, CrosstermPlugin))
+        .add_plugins(
+            DefaultPlugins
+                // Limit threads
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions::with_num_threads(1),
+                })
+                // Disable logging, which would otherwise appear randomly.
+                .set(LogPlugin {
+                    filter: "off".into(),
+                    level: bevy::log::Level::ERROR,
+                }),
+        )
+        .add_plugins(CrosstermPlugin)
         .add_systems(Startup, startup_system)
         .run();
 }

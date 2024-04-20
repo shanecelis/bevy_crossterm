@@ -2,15 +2,14 @@ use std::{convert::TryInto, io::Write};
 
 use crate::components::{self, Style};
 use crate::components::{
-    Colors, EntityDepth, Position, PreviousEntityDetails, PreviousPosition, PreviousSize,
-    PreviousWindowColors, Sprite, StyleMap,
+    Colors, Position, PreviousEntityDetails, PreviousWindowColors, Sprite, StyleMap,
 };
 use crate::{CrosstermWindow, Cursor};
 
 use bevy::prelude::*;
 use bevy::window::WindowResized;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use crossterm::{ExecutableCommand, QueueableCommand};
+use crossterm::{queue, QueueableCommand};
 
 /// Records the initial position/size for every new entity
 pub(crate) fn add_previous_position(
@@ -41,7 +40,7 @@ pub(crate) fn add_previous_position(
     // Bevy loads assets asynchronously so if we couldn't find an asset, we add it to this list and
     // try again until it loads
     let mut entities_to_remove = Vec::new();
-    for entity in entities_without_assets.iter() {
+    for entity in &entities_without_assets {
         let data = all.get(*entity);
         if data.is_err() {
             continue;
@@ -49,12 +48,12 @@ pub(crate) fn add_previous_position(
         let (pos, sprite) = data.unwrap();
 
         if let Some(sprite) = frames.get(sprite) {
-            let prev_pos = PreviousPosition {
+            let prev_pos = components::PreviousPosition {
                 x: pos.x,
                 y: pos.y,
                 z: pos.z,
             };
-            let prev_size = PreviousSize {
+            let prev_size = components::PreviousSize {
                 width: sprite.width() as u16,
                 height: sprite.graphemes().len() as u16,
             };
@@ -65,7 +64,7 @@ pub(crate) fn add_previous_position(
         }
     }
 
-    for entity in entities_to_remove.iter() {
+    for entity in &entities_to_remove {
         entities_without_assets.remove(entity);
     }
 }
@@ -76,14 +75,14 @@ pub(crate) fn update_previous_position(
     frames: Res<Assets<Sprite>>,
     mut positions: Query<(Entity, &Position, &Handle<Sprite>, &components::Visible)>,
 ) {
-    for (entity, new_pos, sprite, _) in positions.iter_mut() {
+    for (entity, new_pos, sprite, _) in &mut positions {
         if let Some(sprite) = frames.get(sprite) {
-            let prev_pos = PreviousPosition {
+            let prev_pos = components::PreviousPosition {
                 x: new_pos.x,
                 y: new_pos.y,
                 z: new_pos.z,
             };
-            let prev_size = PreviousSize {
+            let prev_size = components::PreviousSize {
                 width: sprite.width() as u16,
                 height: sprite.graphemes().len() as u16,
             };
@@ -95,7 +94,42 @@ pub(crate) fn update_previous_position(
     }
 }
 
-/// Calculates which entities ned to be redrawn
+fn changed_assets<T: bevy_asset::Asset>(
+    asset_events: &Res<Events<AssetEvent<T>>>,
+    assets: &Res<Assets<T>>,
+) -> (
+    bevy::utils::HashSet<AssetId<T>>,
+    bevy::utils::HashSet<AssetId<T>>,
+) {
+    let mut created = bevy::utils::HashSet::default();
+    let mut changed = bevy::utils::HashSet::default();
+
+    for evt in asset_events.get_reader().read(asset_events) {
+        match evt {
+            AssetEvent::LoadedWithDependencies { id } => {
+                for cmp in assets.iter() {
+                    if &cmp.0 == id {
+                        created.insert(*id);
+                        break;
+                    }
+                }
+            }
+            AssetEvent::Modified { id } => {
+                for cmp in assets.iter() {
+                    if &cmp.0 == id {
+                        changed.insert(*id);
+                        break;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    (created, changed)
+}
+
+/// Calculates which entities need to be redrawn
 pub(crate) fn calculate_entities_to_redraw(
     mut prev_colors: ResMut<PreviousWindowColors>,
     mut entities: ResMut<components::EntitiesToRedraw>,
@@ -154,7 +188,9 @@ pub(crate) fn calculate_entities_to_redraw(
         prev_colors.0 = window.colors;
         // Mark all entities as needed to redraw
         for (entity, _, _, pos, _) in all.iter() {
-            entities.to_draw.push(EntityDepth { entity, z: pos.z });
+            entities
+                .to_draw
+                .push(components::EntityDepth { entity, z: pos.z });
         }
         entities.to_draw.sort_by_key(|item| item.z);
         return;
@@ -163,57 +199,10 @@ pub(crate) fn calculate_entities_to_redraw(
     // Now check to see which entities actually changed since it's not a full update
 
     // Collect all the changed assets
-    let mut created_sprite_assets = bevy::utils::HashSet::default();
-    let mut changed_sprite_assets = bevy::utils::HashSet::default();
-    let mut created_stylemap_assets = bevy::utils::HashSet::default();
-    let mut changed_stylemap_assets = bevy::utils::HashSet::default();
-
-    for evt in sprite_asset_events.get_reader().read(&sprite_asset_events) {
-        match evt {
-            AssetEvent::LoadedWithDependencies { id } => {
-                for cmp in sprites.iter() {
-                    if &cmp.0 == id {
-                        created_sprite_assets.insert(id.clone());
-                        break;
-                    }
-                }
-            }
-            AssetEvent::Modified { id } => {
-                for cmp in sprites.iter() {
-                    if &cmp.0 == id {
-                        changed_sprite_assets.insert(id.clone());
-                        break;
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    for evt in stylemap_asset_events
-        .get_reader()
-        .read(&stylemap_asset_events)
-    {
-        match evt {
-            AssetEvent::LoadedWithDependencies { id } => {
-                for cmp in stylemaps.iter() {
-                    if &cmp.0 == id {
-                        created_stylemap_assets.insert(id.clone());
-                        break;
-                    }
-                }
-            }
-            AssetEvent::Modified { id } => {
-                for cmp in stylemaps.iter() {
-                    if &cmp.0 == id {
-                        changed_stylemap_assets.insert(id.clone());
-                        break;
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
+    let (created_sprite_assets, changed_sprite_assets) =
+        changed_assets(&sprite_asset_events, &sprites);
+    let (created_stylemap_assets, changed_stylemap_assets) =
+        changed_assets(&stylemap_asset_events, &stylemaps);
 
     // Collect all the entities that changed this update, either because their asset did,
     // or their components did
@@ -237,14 +226,12 @@ pub(crate) fn calculate_entities_to_redraw(
         draw_set.insert(entity);
     }
 
-    for entity in added.iter() {
-        draw_set.insert(entity);
-    }
+    draw_set.extend(added.iter());
 
     // Find all entities that either became invisible, or changed their size or moved. (cleared is good enough for now)
     // Figure out what their previous bounding box is and query all current positions to see what sprites are under it
     // Add the collided entities to draw_set
-    let mut new_ents = Vec::new();
+    let mut collided_entities = Vec::new();
     let mut bboxes = Vec::new();
     for (entity, _, sprite, pos, _) in all.iter() {
         let sprite_data = sprites.get(sprite);
@@ -285,14 +272,14 @@ pub(crate) fn calculate_entities_to_redraw(
             // dbg!("Found Entity: ", bb.inner);
             if !draw_set.contains(&bb.inner) {
                 draw_set.insert(bb.inner);
-                new_ents.push(bb.inner);
+                collided_entities.push(bb.inner);
             }
         });
     }
 
     let mut cur_index = 0;
-    while cur_index < new_ents.len() {
-        let ent = new_ents[cur_index];
+    while cur_index < collided_entities.len() {
+        let ent = collided_entities[cur_index];
         cur_index += 1;
 
         let prev_data = previous_details.0.get(&ent);
@@ -314,17 +301,12 @@ pub(crate) fn calculate_entities_to_redraw(
             // dbg!("Found Entity: ", bb.inner);
             if !draw_set.contains(&bb.inner) {
                 draw_set.insert(bb.inner);
-                new_ents.push(bb.inner);
+                collided_entities.push(bb.inner);
             }
         });
     }
 
-    // For some reason the bevy team removed the `Query::remove` method, meaning we have to implement it ourselves (see https://github.com/bevyengine/bevy/blob/a1a81e572186c31d6e08aa23e4f2f62db7e2d3de/examples/ecs/removal_detection.rs#L53)
-    //let removed = all.removed::<Handle<Sprite>>();
-
-    for entity in removed.read() {
-        entities.to_clear.insert(entity);
-    }
+    entities.to_clear.extend(removed.read());
 
     for ent_to_draw in &draw_set {
         let (entity, _, _, pos, _) = all.get(*ent_to_draw).unwrap();
@@ -404,11 +386,12 @@ fn draw_entity(
     let stylemap = stylemap.unwrap();
     let sprite_colors = stylemap.style.colors.with_default(window.colors);
 
-    term.queue(crossterm::style::SetAttribute(
-        crossterm::style::Attribute::Reset,
-    ))?
-        .queue(crossterm::style::SetAttributes(stylemap.style.attributes))?
-        .queue(crossterm::style::SetColors(sprite_colors.to_crossterm()))?;
+    queue!(
+        term,
+        crossterm::style::SetAttribute(crossterm::style::Attribute::Reset),
+        crossterm::style::SetAttributes(stylemap.style.attributes),
+        crossterm::style::SetColors(sprite_colors.to_crossterm())
+    )?;
 
     let mut previous_style = stylemap.style;
 
@@ -426,7 +409,7 @@ fn draw_entity(
             break;
         }
 
-        // Calculate the beginning and end of string sprte, to not render things off screen
+        // Calculate the beginning and end of string sprite, to not render things off screen
         let start: i32 = std::cmp::max(0, pos.x);
         let end: i32 = std::cmp::min(window.width as i32, pos.x + line.len() as i32);
 
@@ -523,17 +506,16 @@ fn clear_entity(
         let actual_width = x_end - x_start;
         let blank_string = " ".repeat(actual_width as usize);
 
-        term.queue(crossterm::style::SetAttribute(
-            crossterm::style::Attribute::Reset,
-        ))?
-            .queue(crossterm::style::SetColors(
-                Colors::term_colors().to_crossterm(),
-            ))?
-            .queue(crossterm::cursor::MoveTo(
-                x_start.try_into()?,
-                y.try_into()?,
-            ))?
-            .queue(crossterm::style::Print(blank_string))?;
+        let x = x_start.try_into()?;
+        let y = y.try_into()?;
+
+        queue!(
+            term,
+            crossterm::style::SetAttribute(crossterm::style::Attribute::Reset,),
+            crossterm::style::SetColors(Colors::term_colors().to_crossterm(),),
+            crossterm::cursor::MoveTo(x, y),
+            crossterm::style::Print(blank_string)
+        )?;
     }
 
     Ok(())
@@ -561,24 +543,23 @@ pub(crate) fn crossterm_render(
 
     // If we're gonna be drawing stuff, hide the cursor so it doesn't jump all over the place
     if !changed_entities.to_draw.is_empty() {
-        term.execute(crossterm::cursor::Hide).unwrap();
+        term.queue(crossterm::cursor::Hide).unwrap();
     }
 
     // If a resize happened, clear the screen and go from there
     if changed_entities.full_redraw {
-        term.execute(crossterm::style::SetAttribute(
-            crossterm::style::Attribute::Reset,
-        ))
-            .unwrap()
-            .execute(crossterm::terminal::Clear(
-                crossterm::terminal::ClearType::All,
-            ))
-            .unwrap();
-    }
-
-    // Blank out all the previous locations of sprites that changed either their position or their size
-    for entity in &changed_entities.to_clear {
-        clear_entity(*entity, &mut term, window, &previous_details).unwrap();
+        queue!(
+            term,
+            crossterm::style::SetAttribute(crossterm::style::Attribute::Reset),
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All)
+        )
+        .unwrap();
+    } else {
+        // No need to clear individual entities if we just cleared the whole screen anyways.
+        // Blank out all the previous locations of sprites that changed either their position or their size
+        for entity in &changed_entities.to_clear {
+            clear_entity(*entity, &mut term, window, &previous_details).unwrap();
+        }
     }
 
     // Redraw all the changed sprites, either because they moved, or because they changed their shape
@@ -587,18 +568,18 @@ pub(crate) fn crossterm_render(
     }
 
     // Draw the cursor at the right position, if needed
-    if cursor.hidden {
-        term.queue(crossterm::cursor::Hide).unwrap();
-    } else {
-        if cursor.x >= 0
-            && cursor.x < window.width as i32
-            && cursor.y >= 0
-            && cursor.y < window.height as i32
-        {
-            term.queue(crossterm::cursor::MoveTo(cursor.x as u16, cursor.y as u16))
-                .unwrap();
-            term.queue(crossterm::cursor::Show).unwrap();
-        }
+    if !cursor.hidden
+        && cursor.x >= 0
+        && cursor.x < window.width as i32
+        && cursor.y >= 0
+        && cursor.y < window.height as i32
+    {
+        queue!(
+            term,
+            crossterm::cursor::MoveTo(cursor.x as u16, cursor.y as u16),
+            crossterm::cursor::Show
+        )
+        .unwrap();
     }
 
     term.flush().unwrap();

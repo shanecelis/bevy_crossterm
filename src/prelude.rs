@@ -1,4 +1,4 @@
-pub use crate::{CrosstermPlugin, CrosstermWindow, Cursor, CrosstermWindowSettings};
+pub use crate::{CrosstermPlugin, CrosstermWindow, CrosstermWindowSettings, Cursor};
 
 pub use crate::components::{
     Color, Colors, Position, Sprite, SpriteBundle, Style, StyleMap, Visible,

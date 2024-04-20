@@ -36,29 +36,26 @@ pub fn setup(
         window.y_center() as i32 - test_box.y_center() as i32,
     );
 
-    commands
-        .spawn(SpriteBundle {
-            sprite: sprites.add(text_sprite),
-            position: text_pos,
-            stylemap: default_style.clone(),
-            ..Default::default()
-        });
+    commands.spawn(SpriteBundle {
+        sprite: sprites.add(text_sprite),
+        position: text_pos,
+        stylemap: default_style.clone(),
+        ..Default::default()
+    });
 
-    commands
-        .spawn(SpriteBundle {
-            sprite: sprites.add(hor_divider),
-            position: divider_pos,
-            stylemap: default_style.clone(),
-            ..Default::default()
-        });
+    commands.spawn(SpriteBundle {
+        sprite: sprites.add(hor_divider),
+        position: divider_pos,
+        stylemap: default_style.clone(),
+        ..Default::default()
+    });
 
-    commands
-        .spawn(SpriteBundle {
-            sprite: sprites.add(test_box),
-            stylemap: white.clone(),
-            position: test_pos,
-            ..Default::default()
-        });
+    commands.spawn(SpriteBundle {
+        sprite: sprites.add(test_box),
+        stylemap: white.clone(),
+        position: test_pos,
+        ..Default::default()
+    });
 
     commands
         .spawn(SpriteBundle {

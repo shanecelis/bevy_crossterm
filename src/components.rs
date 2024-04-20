@@ -55,6 +55,7 @@ impl Colors {
     }
 
     // Returns the color which represents either this struct, or provided defaults if this struct is empty
+    #[must_use]
     pub fn with_default(&self, default_colors: Colors) -> Self {
         Colors {
             foreground: self.foreground.or(default_colors.foreground),
@@ -99,8 +100,8 @@ mod attribute_parser {
         attrs: &crossterm::style::Attributes,
         serializer: S,
     ) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         let mut attr_bits = 0u32;
         for attr in crossterm::style::Attribute::iterator() {
@@ -121,8 +122,8 @@ mod attribute_parser {
         }
 
         fn visit_u32<E>(self, attr_bits: u32) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
+        where
+            E: serde::de::Error,
         {
             let mut attrs = crossterm::style::Attributes::default();
             for attr in crossterm::style::Attribute::iterator() {
@@ -135,8 +136,8 @@ mod attribute_parser {
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<crossterm::style::Attributes, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_u32(AttrVisitor)
     }
@@ -150,9 +151,9 @@ mod attribute_parser {
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub struct Style {
+    pub colors: Colors,
     #[serde(with = "attribute_parser")]
     pub attributes: crossterm::style::Attributes,
-    pub colors: Colors,
 }
 
 impl Style {

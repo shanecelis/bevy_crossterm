@@ -22,7 +22,8 @@ broccoli = "2"
 anyhow = { version = "1.0.79", features = [] }
 
 [dev-dependencies]
-bevy = { version = "0.12", default-features = false, features = ["bevy_asset"] }
+# Note that we need "multi-threaded" for "file_watcher" to work (otherwise the game will freeze when assets are modified)
+bevy = { version = "0.12", default-features = false, features = ["bevy_asset", "file_watcher", "multi-threaded"] }
 ron = "0.8"
 textwrap = "0.16.0"
 
