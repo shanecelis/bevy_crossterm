@@ -65,23 +65,12 @@ pub fn main() {
             Update,
             check_for_loaded.run_if(in_state(GameState::Loading)),
         )
+        .add_systems(Update, just_wait_and_advance)
         .add_systems(OnEnter(GameState::Title), title::setup)
-        .add_systems(
-            Update,
-            just_wait_and_advance.run_if(in_state(GameState::Title)),
-        )
         .add_systems(OnExit(GameState::Title), simple_teardown)
         .add_systems(OnEnter(GameState::Sprites), sprites::setup)
-        .add_systems(
-            Update,
-            just_wait_and_advance.run_if(in_state(GameState::Sprites)),
-        )
         .add_systems(OnExit(GameState::Sprites), simple_teardown)
         .add_systems(OnEnter(GameState::Colors), colors::setup)
-        .add_systems(
-            Update,
-            just_wait_and_advance.run_if(in_state(GameState::Colors)),
-        )
         .add_systems(OnExit(GameState::Colors), simple_teardown)
         .add_systems(OnEnter(GameState::Animation), animation::setup)
         .add_systems(
@@ -90,10 +79,6 @@ pub fn main() {
         )
         .add_systems(OnExit(GameState::Animation), simple_teardown)
         .add_systems(OnEnter(GameState::Finale), finale::setup)
-        .add_systems(
-            Update,
-            just_wait_and_advance.run_if(in_state(GameState::Finale)),
-        )
         .add_systems(OnExit(GameState::Finale), simple_teardown)
         .run();
 }
@@ -129,8 +114,8 @@ fn check_for_loaded(
 }
 
 // Helper function to see if there was a key press this frame
-pub fn detect_keypress(keys: EventReader<CrosstermKeyEventWrapper>) -> bool {
-    !keys.is_empty()
+fn detect_keypress(mut keys: EventReader<CrosstermKeyEventWrapper>) -> bool {
+    keys.read().any(|k| k.0.kind == crossterm::event::KeyEventKind::Press)
 }
 
 // Simple update function that most screens will use

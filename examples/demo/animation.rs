@@ -73,28 +73,15 @@ pub fn setup(
 }
 
 pub fn update(
-    keys: EventReader<CrosstermKeyEventWrapper>,
-    state: ResMut<State<GameState>>,
-    mut app_exit: ResMut<Events<bevy::app::AppExit>>,
     mut timer: ResMut<AnimationTimer>,
     window: Query<&CrosstermWindow>,
     time: Res<Time>,
     sprites: Res<Assets<Sprite>>,
     mut box_sprite: Query<(&mut Position, &mut Velocity, &Handle<Sprite>)>,
-    mut next_state: ResMut<NextState<GameState>>,
 ) {
     let window = window.single();
 
     timer.0.tick(time.delta());
-
-    if crate::detect_keypress(keys) {
-        if let Some(state) = state.next_state() {
-            next_state.set(state);
-        } else {
-            app_exit.send(bevy::app::AppExit);
-        }
-        return;
-    }
 
     if timer.0.just_finished() {
         let (mut pos, mut vel, sprite) = box_sprite.iter_mut().next().unwrap();
