@@ -90,6 +90,7 @@ pub struct CrosstermWindow {
     width: u16,
     colors: components::Colors,
     title: Option<String>,
+    supports_keyboard_enhancement: bool,
 }
 
 impl CrosstermWindow {

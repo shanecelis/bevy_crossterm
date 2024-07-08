@@ -6,8 +6,12 @@ use std::io::Write;
 use bevy::window::{PrimaryWindow, WindowCreated, WindowResized};
 use bevy_app::{App, AppExit};
 use bevy_ecs::entity::Entity;
-use bevy_ecs::event::Events;
-use crossterm::{queue, ExecutableCommand, QueueableCommand};
+use bevy_ecs::event::{EventReader, Events};
+use bevy_ecs::system::{Res, ResMut};
+use crossterm::{
+    event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
+    queue, ExecutableCommand, QueueableCommand,
+};
 
 impl CrosstermWindow {
     /// Creates a new `CrosstermWindow` and prepares crossterm for rendering.
@@ -15,6 +19,24 @@ impl CrosstermWindow {
         crossterm::terminal::enable_raw_mode().expect("Could not enable crossterm raw mode");
 
         let mut term = std::io::stdout();
+
+        let supports_keyboard_enhancement = matches!(
+            crossterm::terminal::supports_keyboard_enhancement(),
+            Ok(true)
+        );
+
+        if supports_keyboard_enhancement {
+            queue!(
+                term,
+                PushKeyboardEnhancementFlags(
+                    KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                        | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+                        | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                        | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+                )
+            )
+            .expect("Push keyboard enhancement flags");
+        }
         queue!(
             term,
             crossterm::terminal::EnterAlternateScreen,
@@ -46,6 +68,7 @@ impl CrosstermWindow {
             width,
             colors,
             title,
+            supports_keyboard_enhancement,
         }
     }
 }
@@ -54,6 +77,9 @@ impl CrosstermWindow {
 impl Drop for CrosstermWindow {
     fn drop(&mut self) {
         let mut term = std::io::stdout();
+        if self.supports_keyboard_enhancement {
+            queue!(term, PopKeyboardEnhancementFlags).expect("Pop keyboard enhancement flags");
+        }
         queue!(
             term,
             crossterm::event::DisableMouseCapture,
@@ -170,7 +196,11 @@ fn crossterm_events(world: &mut bevy_ecs::world::World, bevy_window: Entity) {
                     {
                         world.send_event(AppExit);
                     }
-
+                    // let mut input = world.resource_mut::<bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>>();
+                    // apply_key_event_to_bevy(&key_event, &mut input);
+                    if let Some((bevy_event, mods)) = key_event_to_bevy(&key_event, bevy_window) {
+                        world.send_event(bevy_event);
+                    }
                     world.send_event(CrosstermKeyEventWrapper(key_event));
                 }
 
@@ -218,3 +248,383 @@ fn crossterm_events(world: &mut bevy_ecs::world::World, bevy_window: Entity) {
         }
     }
 }
+
+// fn apply_key_event_to_bevy(key_event: &crossterm::event::KeyEvent, input: &mut bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>) {
+//     let crossterm::event::KeyEvent { code, modifiers, kind, state } = key_event;
+//     let key_code = to_bevy_keycode(code).expect("key_code");
+//     match kind {
+//         crossterm::event::KeyEventKind::Press => { input.press(key_code); },
+//         crossterm::event::KeyEventKind::Repeat => (),
+//         crossterm::event::KeyEventKind::Release => { input.release(key_code); },
+//     };
+// }
+
+fn key_event_to_bevy(
+    key_event: &crossterm::event::KeyEvent,
+    window: Entity,
+) -> Option<(
+    bevy::input::keyboard::KeyboardInput,
+    crossterm::event::KeyModifiers,
+)> {
+    let crossterm::event::KeyEvent {
+        code,
+        modifiers,
+        kind,
+        state,
+    } = key_event;
+    let state = match kind {
+        crossterm::event::KeyEventKind::Press => bevy::input::ButtonState::Pressed,
+        crossterm::event::KeyEventKind::Repeat => bevy::input::ButtonState::Pressed,
+        crossterm::event::KeyEventKind::Release => bevy::input::ButtonState::Released,
+    };
+    let key_code = to_bevy_keycode(code);
+    let logical_key = to_bevy_key(code);
+    key_code
+        .zip(logical_key)
+        .map(|((key_code, mods), logical_key)| {
+            (
+                bevy::input::keyboard::KeyboardInput {
+                    key_code,
+                    state,
+                    window,
+                    logical_key,
+                },
+                mods,
+            )
+        })
+}
+
+fn to_bevy_keycode(
+    key_code: &crossterm::event::KeyCode,
+) -> Option<(
+    bevy::input::keyboard::KeyCode,
+    crossterm::event::KeyModifiers,
+)> {
+    use bevy::input::keyboard::KeyCode as b;
+    use crossterm::event::KeyCode as c;
+    use crossterm::event::KeyModifiers as m;
+    let mut mods = crossterm::event::KeyModifiers::empty();
+    match key_code {
+        c::Backspace => Some(b::Backspace),
+        c::Enter => Some(b::Enter),
+        c::Left => Some(b::ArrowLeft),
+        c::Right => Some(b::ArrowRight),
+        c::Up => Some(b::ArrowUp),
+        c::Down => Some(b::ArrowDown),
+        c::Home => Some(b::Home),
+        c::End => Some(b::End),
+        c::PageUp => Some(b::PageUp),
+        c::PageDown => Some(b::PageDown),
+        c::Tab => Some(b::Tab),
+        c::BackTab => todo!("backtab?"),
+        c::Delete => Some(b::Delete),
+        c::Insert => Some(b::Insert),
+        c::F(f) => match f {
+            1 => Some(b::F1),
+            2 => Some(b::F2),
+            3 => Some(b::F3),
+            4 => Some(b::F4),
+            5 => Some(b::F5),
+            6 => Some(b::F6),
+            7 => Some(b::F7),
+            8 => Some(b::F8),
+            9 => Some(b::F9),
+            10 => Some(b::F10),
+            11 => Some(b::F11),
+            12 => Some(b::F12),
+            13 => Some(b::F13),
+            14 => Some(b::F14),
+            15 => Some(b::F15),
+            16 => Some(b::F16),
+            17 => Some(b::F17),
+            18 => Some(b::F18),
+            19 => Some(b::F19),
+            20 => Some(b::F20),
+            31 => Some(b::F31),
+            32 => Some(b::F32),
+            33 => Some(b::F33),
+            34 => Some(b::F34),
+            35 => Some(b::F35),
+            f => todo!("F{f} not supported"),
+        },
+        c::Char(c) => match c {
+            '!' => {
+                mods |= m::SHIFT;
+                Some(b::Digit1)
+            }
+            '@' => {
+                mods |= m::SHIFT;
+                Some(b::Digit2)
+            }
+            '#' => {
+                mods |= m::SHIFT;
+                Some(b::Digit3)
+            }
+            '$' => {
+                mods |= m::SHIFT;
+                Some(b::Digit4)
+            }
+            '%' => {
+                mods |= m::SHIFT;
+                Some(b::Digit5)
+            }
+            '^' => {
+                mods |= m::SHIFT;
+                Some(b::Digit6)
+            }
+            '&' => {
+                mods |= m::SHIFT;
+                Some(b::Digit7)
+            }
+            '*' => {
+                mods |= m::SHIFT;
+                Some(b::Digit8)
+            }
+            '(' => {
+                mods |= m::SHIFT;
+                Some(b::Digit9)
+            }
+            ')' => {
+                mods |= m::SHIFT;
+                Some(b::Digit0)
+            }
+            '-' => {
+                mods |= m::SHIFT;
+                Some(b::Minus)
+            }
+            '[' => Some(b::BracketLeft),
+            ']' => Some(b::BracketRight),
+            ',' => Some(b::Comma),
+            '=' => Some(b::Equal),
+            '.' => Some(b::Period),
+            '\'' => Some(b::Quote),
+            ';' => Some(b::Semicolon),
+            '/' => Some(b::Slash),
+            ' ' => Some(b::Space),
+            '1' => Some(b::Digit1),
+            '2' => Some(b::Digit2),
+            '3' => Some(b::Digit3),
+            '4' => Some(b::Digit4),
+            '5' => Some(b::Digit5),
+            '6' => Some(b::Digit6),
+            '7' => Some(b::Digit7),
+            '8' => Some(b::Digit8),
+            '9' => Some(b::Digit9),
+            '0' => Some(b::Digit0),
+            'a' => Some(b::KeyA),
+            'b' => Some(b::KeyB),
+            'c' => Some(b::KeyC),
+            'd' => Some(b::KeyD),
+            'e' => Some(b::KeyE),
+            'f' => Some(b::KeyF),
+            'g' => Some(b::KeyG),
+            'h' => Some(b::KeyH),
+            'i' => Some(b::KeyI),
+            'j' => Some(b::KeyJ),
+            'k' => Some(b::KeyK),
+            'l' => Some(b::KeyL),
+            'm' => Some(b::KeyM),
+            'n' => Some(b::KeyN),
+            'o' => Some(b::KeyO),
+            'p' => Some(b::KeyP),
+            'q' => Some(b::KeyQ),
+            'r' => Some(b::KeyR),
+            's' => Some(b::KeyS),
+            't' => Some(b::KeyT),
+            'u' => Some(b::KeyU),
+            'v' => Some(b::KeyV),
+            'w' => Some(b::KeyW),
+            'x' => Some(b::KeyX),
+            'y' => Some(b::KeyY),
+            'z' => Some(b::KeyZ),
+            'A' => Some(b::KeyA),
+            'B' => Some(b::KeyB),
+            'C' => Some(b::KeyC),
+            'D' => Some(b::KeyD),
+            'E' => Some(b::KeyE),
+            'F' => Some(b::KeyF),
+            'G' => Some(b::KeyG),
+            'H' => Some(b::KeyH),
+            'I' => Some(b::KeyI),
+            'J' => Some(b::KeyJ),
+            'K' => Some(b::KeyK),
+            'L' => Some(b::KeyL),
+            'M' => Some(b::KeyM),
+            'N' => Some(b::KeyN),
+            'O' => Some(b::KeyO),
+            'P' => Some(b::KeyP),
+            'Q' => Some(b::KeyQ),
+            'R' => Some(b::KeyR),
+            'S' => Some(b::KeyS),
+            'T' => Some(b::KeyT),
+            'U' => Some(b::KeyU),
+            'V' => Some(b::KeyV),
+            'W' => Some(b::KeyW),
+            'X' => Some(b::KeyX),
+            'Y' => Some(b::KeyY),
+            'Z' => Some(b::KeyZ),
+            x => todo!("Char {x} not supported"),
+        },
+        c::Null => None,
+        c::Esc => Some(b::Escape),
+        c::CapsLock => Some(b::CapsLock),
+        c::ScrollLock => Some(b::ScrollLock),
+        c::NumLock => Some(b::NumLock),
+        c::PrintScreen => Some(b::PrintScreen),
+        c::Pause => Some(b::Pause),
+        c::Menu => Some(b::ContextMenu),
+        c::KeypadBegin => None,
+        c::Media(media) => {
+            use crossterm::event::MediaKeyCode::*;
+            match media {
+                Play => Some(b::MediaPlayPause),
+                Pause => Some(b::Pause),
+                PlayPause => Some(b::MediaPlayPause),
+                Reverse => None,
+                Stop => Some(b::MediaStop),
+                FastForward => Some(b::MediaTrackNext),
+                Rewind => Some(b::MediaTrackPrevious),
+                TrackNext => Some(b::MediaTrackNext),
+                TrackPrevious => Some(b::MediaTrackPrevious),
+                Record => None,
+                LowerVolume => Some(b::AudioVolumeDown),
+                RaiseVolume => Some(b::AudioVolumeUp),
+                MuteVolume => Some(b::AudioVolumeMute),
+            }
+        }
+        c::Modifier(modifier) => {
+            use crossterm::event::ModifierKeyCode::*;
+            match modifier {
+                LeftShift => Some(b::ShiftLeft),
+                LeftControl => Some(b::ControlLeft),
+                LeftAlt => Some(b::AltLeft),
+                LeftSuper => Some(b::SuperLeft),
+                LeftHyper => Some(b::Hyper),
+                LeftMeta => Some(b::Meta),
+                RightShift => Some(b::ShiftRight),
+                RightControl => Some(b::ControlRight),
+                RightAlt => Some(b::AltRight),
+                RightSuper => Some(b::SuperRight),
+                RightHyper => Some(b::Hyper),
+                RightMeta => Some(b::Meta),
+                IsoLevel3Shift => None,
+                IsoLevel5Shift => None,
+            }
+        }
+        x => {
+            todo!("Need to handle key code {x:?}");
+        }
+    }
+    .map(|key_code| (key_code, mods))
+}
+
+fn to_bevy_key(key_code: &crossterm::event::KeyCode) -> Option<bevy::input::keyboard::Key> {
+    use bevy::input::keyboard::Key as b;
+    use crossterm::event::KeyCode as c;
+    match key_code {
+        c::Backspace => Some(b::Backspace),
+        c::Enter => Some(b::Enter),
+        c::Left => Some(b::ArrowLeft),
+        c::Right => Some(b::ArrowRight),
+        c::Up => Some(b::ArrowUp),
+        c::Down => Some(b::ArrowDown),
+        c::Home => Some(b::Home),
+        c::End => Some(b::End),
+        c::PageUp => Some(b::PageUp),
+        c::PageDown => Some(b::PageDown),
+        c::Tab => Some(b::Tab),
+        c::BackTab => todo!("backtab?"),
+        c::Delete => Some(b::Delete),
+        c::Insert => Some(b::Insert),
+        c::F(f) => match f {
+            1 => Some(b::F1),
+            2 => Some(b::F2),
+            3 => Some(b::F3),
+            4 => Some(b::F4),
+            5 => Some(b::F5),
+            6 => Some(b::F6),
+            7 => Some(b::F7),
+            8 => Some(b::F8),
+            9 => Some(b::F9),
+            10 => Some(b::F10),
+            11 => Some(b::F11),
+            12 => Some(b::F12),
+            13 => Some(b::F13),
+            14 => Some(b::F14),
+            15 => Some(b::F15),
+            16 => Some(b::F16),
+            17 => Some(b::F17),
+            18 => Some(b::F18),
+            19 => Some(b::F19),
+            20 => Some(b::F20),
+            31 => Some(b::F31),
+            32 => Some(b::F32),
+            33 => Some(b::F33),
+            34 => Some(b::F34),
+            35 => Some(b::F35),
+            x => todo!("F{f} not supported"),
+        },
+        c::Char(c) => Some({
+            let mut tmp = [0u8; 4];
+            let s = c.encode_utf8(&mut tmp);
+            b::Character(smol_str::SmolStr::from(s))
+        }),
+        c::Null => None,
+        c::Esc => Some(b::Escape),
+        c::CapsLock => Some(b::CapsLock),
+        c::ScrollLock => Some(b::ScrollLock),
+        c::NumLock => Some(b::NumLock),
+        c::PrintScreen => Some(b::PrintScreen),
+        c::Pause => Some(b::Pause),
+        c::Menu => Some(b::ContextMenu),
+        c::KeypadBegin => None,
+        c::Media(media) => {
+            use crossterm::event::MediaKeyCode::*;
+            match media {
+                Play => Some(b::MediaPlay),
+                Pause => Some(b::Pause),
+                PlayPause => Some(b::MediaPlayPause),
+                Reverse => None,
+                Stop => Some(b::MediaStop),
+                FastForward => Some(b::MediaFastForward),
+                Rewind => Some(b::MediaRewind),
+                TrackNext => Some(b::MediaTrackNext),
+                TrackPrevious => Some(b::MediaTrackPrevious),
+                Record => Some(b::MediaRecord),
+                LowerVolume => Some(b::AudioVolumeDown),
+                RaiseVolume => Some(b::AudioVolumeUp),
+                MuteVolume => Some(b::AudioVolumeMute),
+            }
+        }
+        c::Modifier(modifier) => {
+            use crossterm::event::ModifierKeyCode::*;
+            match modifier {
+                LeftShift => Some(b::Shift),
+                LeftControl => Some(b::Control),
+                LeftAlt => Some(b::Alt),
+                LeftSuper => Some(b::Super),
+                LeftHyper => Some(b::Hyper),
+                LeftMeta => Some(b::Meta),
+                RightShift => Some(b::Shift),
+                RightControl => Some(b::Control),
+                RightAlt => Some(b::Alt),
+                RightSuper => Some(b::Super),
+                RightHyper => Some(b::Hyper),
+                RightMeta => Some(b::Meta),
+                IsoLevel3Shift => Some(b::AltGraph),
+                IsoLevel5Shift => None,
+            }
+        }
+        x => {
+            todo!("Need to handle key code {x:?}");
+        }
+    }
+}
+
+// /// Check if any events are immediately available and if so, read them and republish
+// fn send_to_bevy_input(mut key_events: EventReader<CrosstermKeyEventWrapper>,
+//                       mut input: ResMut<bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>>) {
+//     for key_event in key_events.read() {
+//         apply_key_event_to_bevy(&key_event.0, &mut input);
+//     }
+// }

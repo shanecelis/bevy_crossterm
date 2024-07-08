@@ -115,7 +115,8 @@ fn check_for_loaded(
 
 // Helper function to see if there was a key press this frame
 fn detect_keypress(mut keys: EventReader<CrosstermKeyEventWrapper>) -> bool {
-    keys.read().any(|k| k.0.kind == crossterm::event::KeyEventKind::Press)
+    keys.read()
+        .any(|k| k.0.kind == crossterm::event::KeyEventKind::Press)
 }
 
 // Simple update function that most screens will use

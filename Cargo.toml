@@ -20,6 +20,7 @@ serde = { version = "1.0", features = ["derive"] }
 unicode-segmentation = "1.11"
 broccoli = "2"
 thiserror = "1.0.58"
+smol_str = "0.2.2"
 
 [dev-dependencies]
 # Note that we need "multi-threaded" for "file_watcher" to work (otherwise the game will freeze when assets are modified)
