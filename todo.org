@@ -1,0 +1,4 @@
+#+title: Todo
+* [ ] Make bevy keys work without kitty
+* [ ] Do something about style data. (Use images!)
+* [ ] Try to make an example that uses ratatui.
