@@ -35,6 +35,9 @@ impl CrosstermWindow {
                 )
             )
             .expect("Push keyboard enhancement flags");
+        } else {
+            // TODO: Make it work without kitty too.
+            panic!("To simulate bevy key presses, we need the kitty comprehensive keyboard handling extension to terminal. See here: https://sw.kovidgoyal.net/kitty/keyboard-protocol/");
         }
         queue!(
             term,
