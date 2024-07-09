@@ -6,8 +6,7 @@ use std::io::Write;
 use bevy::window::{PrimaryWindow, WindowCreated, WindowResized};
 use bevy_app::{App, AppExit};
 use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{EventReader, Events};
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::event::Events;
 use crossterm::{
     event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
     queue, ExecutableCommand, QueueableCommand,
@@ -107,6 +106,7 @@ pub fn crossterm_runner(mut app: App) {
     } else {
         settings[0]
     };
+    let mut modifiers = crossterm::event::KeyModifiers::empty();
 
     match settings.run_mode {
         bevy::app::RunMode::Once => {
@@ -115,7 +115,7 @@ pub fn crossterm_runner(mut app: App) {
         bevy::app::RunMode::Loop { wait } => {
             // Run the main loop, and delay if we need to
             let mut start_time = std::time::Instant::now();
-            while tick(&mut app, bevy_window).is_ok() {
+            while tick(&mut app, bevy_window, &mut modifiers).is_ok() {
                 let end_time = std::time::Instant::now();
 
                 if let Some(wait) = wait {
@@ -161,8 +161,8 @@ fn setup_window(app: &mut App) -> Entity {
 }
 
 /// A single game update
-fn tick(app: &mut App, bevy_window: Entity) -> Result<(), AppExit> {
-    crossterm_events(&mut app.world, bevy_window);
+fn tick(app: &mut App, bevy_window: Entity, modifiers: &mut crossterm::event::KeyModifiers) -> Result<(), AppExit> {
+    crossterm_events(&mut app.world, bevy_window, modifiers);
 
     // Yield execution to the rest of bevy and it's scheduler
     app.update();
@@ -182,7 +182,7 @@ fn tick(app: &mut App, bevy_window: Entity) -> Result<(), AppExit> {
 }
 
 /// Check if any events are immediately available and if so, read them and republish
-fn crossterm_events(world: &mut bevy_ecs::world::World, bevy_window: Entity) {
+fn crossterm_events(world: &mut bevy_ecs::world::World, bevy_window: Entity, modifiers: &mut crossterm::event::KeyModifiers) {
     while let Ok(available) = crossterm::event::poll(std::time::Duration::from_secs(0)) {
         if available {
             match crossterm::event::read().unwrap() {
@@ -199,6 +199,21 @@ fn crossterm_events(world: &mut bevy_ecs::world::World, bevy_window: Entity) {
                     // let mut input = world.resource_mut::<bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>>();
                     // apply_key_event_to_bevy(&key_event, &mut input);
                     if let Some((bevy_event, mods)) = key_event_to_bevy(&key_event, bevy_window) {
+                        // dbg!(mods, *modifiers);
+                        if mods != *modifiers {
+                            let delta = mods.symmetric_difference(*modifiers);
+                            for flag in delta {
+                                let state = if mods.contains(flag) {
+                                    // This flag has been added.
+                                    bevy::input::ButtonState::Pressed
+                                } else { // modifiers.contains(flag)
+                                    // This flag has been removed.
+                                    bevy::input::ButtonState::Released
+                                };
+                                world.send_event(modifier_to_bevy(crossterm_modifier_to_bevy_key(flag), state, bevy_window));
+                            }
+                            *modifiers = mods;
+                        }
                         world.send_event(bevy_event);
                     }
                     world.send_event(CrosstermKeyEventWrapper(key_event));
@@ -249,15 +264,46 @@ fn crossterm_events(world: &mut bevy_ecs::world::World, bevy_window: Entity) {
     }
 }
 
-// fn apply_key_event_to_bevy(key_event: &crossterm::event::KeyEvent, input: &mut bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>) {
-//     let crossterm::event::KeyEvent { code, modifiers, kind, state } = key_event;
-//     let key_code = to_bevy_keycode(code).expect("key_code");
-//     match kind {
-//         crossterm::event::KeyEventKind::Press => { input.press(key_code); },
-//         crossterm::event::KeyEventKind::Repeat => (),
-//         crossterm::event::KeyEventKind::Release => { input.release(key_code); },
-//     };
-// }
+fn crossterm_modifier_to_bevy_key(modifier: crossterm::event::KeyModifiers) -> bevy::input::keyboard::Key {
+    let mut i = modifier.into_iter();
+    let modifier = i.next().expect("mod");
+    use crossterm::event::KeyModifiers as c;
+    use bevy::input::keyboard::Key as k;
+    let result = match modifier {
+        c::SHIFT => k::Shift,
+        c::CONTROL => k::Control,
+        c::ALT => k::Alt,
+        c::SUPER => k::Super,
+        c::HYPER => k::Hyper,
+        c::META => k::Meta,
+        x => panic!("Given a modifier of {x:?}"),
+    };
+    assert!(i.next() == None);
+    result
+}
+
+fn modifier_to_bevy(modifier: bevy::input::keyboard::Key, state: bevy::input::ButtonState, window: Entity)
+                    -> bevy::input::keyboard::KeyboardInput {
+
+    use bevy::input::keyboard::Key as k;
+    use bevy::input::keyboard::KeyCode as c;
+    let key_code = match modifier {
+        k::Control => c::ControlLeft,
+        k::Shift => c::ShiftLeft,
+        k::Alt => c::AltLeft,
+        k::Hyper => c::Hyper,
+        k::Meta => c::Meta,
+        k::Super => c::SuperLeft,
+        x => panic!("No such modifier {x:?}"),
+    };
+    let logical_key = modifier;
+    bevy::input::keyboard::KeyboardInput {
+        key_code,
+        state,
+        window,
+        logical_key,
+    }
+}
 
 fn key_event_to_bevy(
     key_event: &crossterm::event::KeyEvent,
@@ -270,7 +316,7 @@ fn key_event_to_bevy(
         code,
         modifiers,
         kind,
-        state,
+        state: _state
     } = key_event;
     let state = match kind {
         crossterm::event::KeyEventKind::Press => bevy::input::ButtonState::Pressed,
@@ -289,7 +335,7 @@ fn key_event_to_bevy(
                     window,
                     logical_key,
                 },
-                mods,
+                *modifiers | mods,
             )
         })
 }
@@ -316,7 +362,7 @@ fn to_bevy_keycode(
         c::PageUp => Some(b::PageUp),
         c::PageDown => Some(b::PageDown),
         c::Tab => Some(b::Tab),
-        c::BackTab => todo!("backtab?"),
+        c::BackTab => None,
         c::Delete => Some(b::Delete),
         c::Insert => Some(b::Insert),
         c::F(f) => match f {
@@ -345,7 +391,7 @@ fn to_bevy_keycode(
             33 => Some(b::F33),
             34 => Some(b::F34),
             35 => Some(b::F35),
-            f => todo!("F{f} not supported"),
+            _ => None,
         },
         c::Char(c) => match c {
             '!' => {
@@ -394,12 +440,44 @@ fn to_bevy_keycode(
             }
             '[' => Some(b::BracketLeft),
             ']' => Some(b::BracketRight),
+            '{' => {
+                mods |= m::SHIFT;
+                Some(b::BracketLeft)
+            },
+            '}' => {
+                mods |= m::SHIFT;
+                Some(b::BracketRight)
+            },
             ',' => Some(b::Comma),
             '=' => Some(b::Equal),
+            '<' => {
+                mods |= m::SHIFT;
+                Some(b::Comma)
+            },
+            '+' => {
+                mods |= m::SHIFT;
+                Some(b::Equal)
+            },
             '.' => Some(b::Period),
+            '>' => {
+                mods |= m::SHIFT;
+                Some(b::Period)
+            },
             '\'' => Some(b::Quote),
+            '"' => {
+                mods |= m::SHIFT;
+                Some(b::Quote)
+            },
             ';' => Some(b::Semicolon),
+            ':' => {
+                mods |= m::SHIFT;
+                Some(b::Semicolon)
+            },
             '/' => Some(b::Slash),
+            '?' => {
+                mods |= m::SHIFT;
+                Some(b::Slash)
+            },
             ' ' => Some(b::Space),
             '1' => Some(b::Digit1),
             '2' => Some(b::Digit2),
@@ -437,33 +515,111 @@ fn to_bevy_keycode(
             'x' => Some(b::KeyX),
             'y' => Some(b::KeyY),
             'z' => Some(b::KeyZ),
-            'A' => Some(b::KeyA),
-            'B' => Some(b::KeyB),
-            'C' => Some(b::KeyC),
-            'D' => Some(b::KeyD),
-            'E' => Some(b::KeyE),
-            'F' => Some(b::KeyF),
-            'G' => Some(b::KeyG),
-            'H' => Some(b::KeyH),
-            'I' => Some(b::KeyI),
-            'J' => Some(b::KeyJ),
-            'K' => Some(b::KeyK),
-            'L' => Some(b::KeyL),
-            'M' => Some(b::KeyM),
-            'N' => Some(b::KeyN),
-            'O' => Some(b::KeyO),
-            'P' => Some(b::KeyP),
-            'Q' => Some(b::KeyQ),
-            'R' => Some(b::KeyR),
-            'S' => Some(b::KeyS),
-            'T' => Some(b::KeyT),
-            'U' => Some(b::KeyU),
-            'V' => Some(b::KeyV),
-            'W' => Some(b::KeyW),
-            'X' => Some(b::KeyX),
-            'Y' => Some(b::KeyY),
-            'Z' => Some(b::KeyZ),
-            x => todo!("Char {x} not supported"),
+            'A' => {
+                mods |= m::SHIFT;
+                Some(b::KeyA)
+            },
+            'B' => {
+                mods |= m::SHIFT;
+                Some(b::KeyB)
+            },
+            'C' => {
+                mods |= m::SHIFT;
+                Some(b::KeyC)
+            },
+            'D' => {
+                mods |= m::SHIFT;
+                Some(b::KeyD)
+            },
+            'E' => {
+                mods |= m::SHIFT;
+                Some(b::KeyE)
+            },
+            'F' => {
+                mods |= m::SHIFT;
+                Some(b::KeyF)
+            },
+            'G' => {
+                mods |= m::SHIFT;
+                Some(b::KeyG)
+            },
+            'H' => {
+                mods |= m::SHIFT;
+                Some(b::KeyH)
+            },
+            'I' => {
+                mods |= m::SHIFT;
+                Some(b::KeyI)
+            },
+            'J' => {
+                mods |= m::SHIFT;
+                Some(b::KeyJ)
+            },
+            'K' => {
+                mods |= m::SHIFT;
+                Some(b::KeyK)
+            },
+            'L' => {
+                mods |= m::SHIFT;
+                Some(b::KeyL)
+            },
+            'M' => {
+                mods |= m::SHIFT;
+                Some(b::KeyM)
+            },
+            'N' => {
+                mods |= m::SHIFT;
+                Some(b::KeyN)
+            },
+            'O' => {
+                mods |= m::SHIFT;
+                Some(b::KeyO)
+            },
+            'P' => {
+                mods |= m::SHIFT;
+                Some(b::KeyP)
+            },
+            'Q' => {
+                mods |= m::SHIFT;
+                Some(b::KeyQ)
+            },
+            'R' => {
+                mods |= m::SHIFT;
+                Some(b::KeyR)
+            },
+            'S' => {
+                mods |= m::SHIFT;
+                Some(b::KeyS)
+            },
+            'T' => {
+                mods |= m::SHIFT;
+                Some(b::KeyT)
+            },
+            'U' => {
+                mods |= m::SHIFT;
+                Some(b::KeyU)
+            },
+            'V' => {
+                mods |= m::SHIFT;
+                Some(b::KeyV)
+            },
+            'W' => {
+                mods |= m::SHIFT;
+                Some(b::KeyW)
+            },
+            'X' => {
+                mods |= m::SHIFT;
+                Some(b::KeyX)
+            },
+            'Y' => {
+                mods |= m::SHIFT;
+                Some(b::KeyY)
+            },
+            'Z' => {
+                mods |= m::SHIFT;
+                Some(b::KeyZ)
+            },
+            _ => None,
         },
         c::Null => None,
         c::Esc => Some(b::Escape),
@@ -511,9 +667,6 @@ fn to_bevy_keycode(
                 IsoLevel5Shift => None,
             }
         }
-        x => {
-            todo!("Need to handle key code {x:?}");
-        }
     }
     .map(|key_code| (key_code, mods))
 }
@@ -533,7 +686,7 @@ fn to_bevy_key(key_code: &crossterm::event::KeyCode) -> Option<bevy::input::keyb
         c::PageUp => Some(b::PageUp),
         c::PageDown => Some(b::PageDown),
         c::Tab => Some(b::Tab),
-        c::BackTab => todo!("backtab?"),
+        c::BackTab => None,
         c::Delete => Some(b::Delete),
         c::Insert => Some(b::Insert),
         c::F(f) => match f {
@@ -562,7 +715,7 @@ fn to_bevy_key(key_code: &crossterm::event::KeyCode) -> Option<bevy::input::keyb
             33 => Some(b::F33),
             34 => Some(b::F34),
             35 => Some(b::F35),
-            x => todo!("F{f} not supported"),
+            _ => None,
         },
         c::Char(c) => Some({
             let mut tmp = [0u8; 4];
@@ -615,16 +768,5 @@ fn to_bevy_key(key_code: &crossterm::event::KeyCode) -> Option<bevy::input::keyb
                 IsoLevel5Shift => None,
             }
         }
-        x => {
-            todo!("Need to handle key code {x:?}");
-        }
     }
 }
-
-// /// Check if any events are immediately available and if so, read them and republish
-// fn send_to_bevy_input(mut key_events: EventReader<CrosstermKeyEventWrapper>,
-//                       mut input: ResMut<bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>>) {
-//     for key_event in key_events.read() {
-//         apply_key_event_to_bevy(&key_event.0, &mut input);
-//     }
-// }
